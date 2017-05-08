@@ -1,0 +1,9 @@
+venv/*
+mediaroot/
+staticroot/
+project/database.db
+local_settings.py
+*.pyc
+*.swp
+*.egg-info
+*.orig
