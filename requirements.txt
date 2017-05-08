@@ -1,0 +1,11 @@
+Django==1.11
+dj-database-url
+gunicorn
+psycopg2
+requests
+six
+whitenoise
+newrelic
+django-sslify
+raven
+-e ./src/palautebot
