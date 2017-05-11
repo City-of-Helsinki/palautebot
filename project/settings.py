@@ -6,10 +6,20 @@ import os
 import dj_database_url
 
 SECRET_KEY = os.environ.get('SECRET_KEY', None)
-TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', None)
-TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', None)
-TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', None)
-TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', None)
+TWITTER_CONSUMER_KEY = os.environ.get('TWITTER_CONSUMER_KEY', None)
+TWITTER_CONSUMER_SECRET = os.environ.get('TWITTER_CONSUMER_SECRET', None)
+TWITTER_ACCESS_TOKEN = os.environ.get('TWITTER_ACCESS_TOKEN', None)
+TWITTER_ACCESS_TOKEN_SECRET = os.environ.get('TWITTER_ACCESS_TOKEN_SECRET', None)
+
+INSTAGRAM_CLIENT_ID = os.environ.get('INSTAGRAM_CLIENT_ID', None)
+INSTAGRAM_CLIENT_SECRET = os.environ.get('INSTAGRAM_CLIENT_SECRET', None)
+INSTAGRAM_ACCESS_TOKEN = os.environ.get('INSTAGRAM_ACCESS_TOKEN', None)
+
+FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', None)
+FACEBOOK_APP_SECRET= os.environ.get('FACEBOOK_APP_SECRET', None)
+
+HELSINKI_API_KEY = os.environ.get('HELSINKI_API_KEY', None)
+SEARCH_STRINGT= os.environ.get('SEARCH_STRING', None)
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 
