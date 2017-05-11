@@ -1,10 +1,9 @@
-# Palaute-Bot Documents
+# Palaute-Bot
 
 ## Requirements
   - Twitter Account and keys
   - Instagram Account and keys
   - Facebok Account and keys
-
 
 ## Getting the keys
   - **Twitter**
@@ -27,3 +26,11 @@
     - **You need the CLIENT ID**
 
   - **Facebook**
+
+## Architecture
+
+## Usage
+
+## Code style
+
+## License

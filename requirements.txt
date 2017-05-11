@@ -9,3 +9,6 @@ newrelic
 django-sslify
 raven
 -e ./src/palautebot
+tweepy
+facebook-sdk
+python-instagram-ext
