@@ -2,7 +2,6 @@
 
 import logging
 import requests
-import pdb
 
 from django.core.management.base import BaseCommand
 from instagram.client import InstagramAPI
@@ -20,17 +19,24 @@ class Command(BaseCommand):
         original_redirect_uri = settings.INSTAGRAM_REDIRECT_URI
         raw_scope = settings.INSTAGRAM_ACCESS_TOKEN_SCOPE
         scope = raw_scope.split(' ')
-        pdb.set_trace()
         # For basic, API seems to need to be set explicitly
         if not scope or scope == [""]:
             scope = ["basic"]
 
-        api = InstagramAPI(client_id=client_id, client_secret=client_secret, redirect_uri=original_redirect_uri)
-        redirect_uri = api.get_authorize_login_url(scope = scope)
-        pdb.set_trace()
-        print ("Visit this page and authorize access in your browser: "+ redirect_uri)
+        api = InstagramAPI(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=original_redirect_uri
+        )
+        redirect_uri = api.get_authorize_login_url(scope=scope)
+        info_str = 'Visit this page and authorize access in your browser: '
+        print '%s%s'(info_str, redirect_uri)
 
-        code = (str(input("Paste in code in query string after redirect: ").strip()))
+        code = (
+            str(
+                input('Paste in code in query string after redirect: ').strip()
+            )
+        )
 
         # exchange_code_for_access_token has a bug, missing
         # {'Content-Type': 'application/x-www-form-urlencoded'}
@@ -45,7 +51,6 @@ class Command(BaseCommand):
             u'grant_type': u'authorization_code',
             u'redirect_uri': original_redirect_uri
         }
-        print (post_data)
         response = requests.post(url, data=post_data)
         account_data = response.json()
         print(account_data)

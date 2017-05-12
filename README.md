@@ -6,6 +6,25 @@
   - Facebook Account and keys (with valid phone number)
   - Facebook page for palaute-bot
 
+## Assebly for testing
+  - Install dependencies `python36 pip install -r requirements.txt`
+  - Create Database table `python36 manage.py migrate --settings=project.local_settings.py`
+  - Create a file to projects folder called local_settings.py
+  - To make it work instantly you can use following names for the keys
+    - `TWITTER_CONSUMER_KEY = ''
+TWITTER_CONSUMER_SECRET = ''
+TWITTER_ACCESS_TOKEN = ''
+TWITTER_ACCESS_TOKEN_SECRET = ''
+INSTAGRAM_CLIENT_ID = ''
+INSTAGRAM_CLIENT_SECRET = ''
+INSTAGRAM_REDIRECT_URI = ''
+INSTAGRAM_ACCESS_TOKEN_SCOPE = 'basic comments'
+INSTAGRAM_ACCESS_TOKEN = ''
+FACEBOOK_APP_ID = ''
+FACEBOOK_APP_SECRET = ''
+HELSINKI_API_KEY = ''
+SEARCH_STRING = '#ExamleTestHashtag'`
+  - Run the script `python36 manage.py palautebot --settings=project.local_settings.py`
 
 ## Getting the keys
   - **Twitter**
@@ -32,7 +51,7 @@
       - Redirect uri
       - Scope = 'basic comments'
           - **For Instagram access token**
-            - run python manage.py get_instagram_access_token --settings=projects/local_settings
+            - run python36 manage.py get_instagram_access_token --settings=projects/local_settings
             - follow instructions
 
   - **Facebook**
@@ -67,4 +86,9 @@
 
 ## Code style
 
+  PEP8
+
 ## License
+
+[The MIT Licence](https://opensource.org/licenses/MIT)
+

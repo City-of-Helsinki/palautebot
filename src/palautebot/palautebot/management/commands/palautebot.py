@@ -56,7 +56,6 @@ class Command(BaseCommand):
         # and starting from max_tag_id
         instagram_api = self.authenticate_instagram()
         search_string = search_string.replace('#', '')
-        pdb.set_trace()
         try:
             # max_tag_id should be the last checked feedback id
             recent_media, next_ = instagram_api.user_recent_media(
@@ -86,7 +85,11 @@ class Command(BaseCommand):
                 message = 'Palautteen tallennus epäonnistui'
             self.answer_to_instagram(ticket_url, media.id, message)
 
-    def handle_tweets(self, return_count=100, search_string=settings.SEARCH_STRING):
+    def handle_tweets(
+        self,
+        return_count=100,
+        search_string=settings.SEARCH_STRING
+    ):
         # Queries maximum of 100 latest tweets containing string
         twitter_api = self.authenticate_twitter()
         all_tweets = twitter_api.search(search_string, rpp=return_count)
