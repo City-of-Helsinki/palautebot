@@ -1,4 +1,5 @@
 from instagram.client import InstagramAPI
+import requests
 import sys
 
 if len(sys.argv) > 1 and sys.argv[1] == 'local':
@@ -37,6 +38,20 @@ print ("Visit this page and authorize access in your browser: "+ redirect_uri)
 
 code = (str(input("Paste in code in query string after redirect: ").strip()))
 
-access_token = api.exchange_code_for_access_token(code)
-print ("access token: " )
-print (access_token)
+# access_token = api.exchange_code_for_access_token(code)
+# print ("access token: " )
+# print (access_token)
+
+url = u'https://api.instagram.com/oauth/access_token'
+post_data = {
+    u'client_id': client_id,
+    u'client_secret': client_secret,
+    u'code': code,
+    u'grant_type': u'authorization_code',
+    u'redirect_uri': redirect_uri
+}
+response = requests.post(url, data=post_data)
+
+account_data = response.json()
+
+print(account_data)

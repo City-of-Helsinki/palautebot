@@ -3,7 +3,9 @@
 ## Requirements
   - Twitter Account and keys
   - Instagram Account and keys
-  - Facebok Account and keys
+  - Facebook Account and keys (with valid phone number)
+  - Facebook page for palaute-bot
+
 
 ## Getting the keys
   - **Twitter**
@@ -23,9 +25,41 @@
     - Join to Instagram developer on https://www.instagram.com/developer/
     - Select Manage Clients from top navigation
     - Register a new Client App by filling in the form
-    - **You need the CLIENT ID**
+    - Select MANAGE from your app's upper right corner
+    - **You need the following 2 keys**
+      - CLIENT ID
+      - CLIENT SECRET
+      - Redirect uri
+      - Scope = 'basic comments'
+          - **For Instagram access token**
+            - run python manage.py get_instagram_access_token --settings=projects/local_settings
+            - follow instructions
 
   - **Facebook**
+    - Create a facebook page for the bot
+      - 
+    - Join to Facebook Developer on https://developers.facebook.com/
+    - Select My Apps (upper right corner)
+    - Select Add a New App
+    - fill in the needed info
+    - **You need the following 2 keys**
+      - APP ID
+      - APP SECRET
+
+
+  - **What to do with keys**
+    - Paste all keys and info to projects/local_settings.py
+
+  ## Issues
+
+  ### Instagram
+  - Publishing via instagram api is limited to 60 comments per hour (https://www.instagram.com/developer/limits/)
+  - python-instagram library is not actively mainained (will have to be switched to community version when community version is good enough)
+  - All posts have to be public in order to bot to see them.
+
+### Twitter
+  - Applications are allowed to make maximum of 350 requests per hour.
+  - Querying tweets by hashtag is limited to 100 tweets per query.
 
 ## Architecture
 
