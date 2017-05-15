@@ -56,7 +56,9 @@ SEARCH_STRING = '#ExamleTestHashtag'`
 
   - **Facebook**
     - Create a facebook page for the bot
-      - 
+      - You need the page id from url 
+        - https://www.facebook.com/Yourpage-xxxxxxxxxx/
+        - page id is the string of numbers      ^
     - Join to Facebook Developer on https://developers.facebook.com/
     - Select My Apps (upper right corner)
     - Select Add a New App
@@ -80,6 +82,9 @@ SEARCH_STRING = '#ExamleTestHashtag'`
   - Applications are allowed to make maximum of 350 requests per hour.
   - Querying tweets by hashtag is limited to 100 tweets per query.
 
+### Facebook
+  - Stable version (2.00) of Facebook-sdk does not support the latest facebook graph version. There's an alpha version of facebook-sdk (3.00) that supports the latest.
+  - 
 ## Architecture
 
 ## Usage

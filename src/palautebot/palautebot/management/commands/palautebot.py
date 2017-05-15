@@ -1,10 +1,9 @@
 
 # -*- coding: utf-8 -*-
-
+import facebook
 import logging
 import pdb
 import requests
-import facebook
 import tweepy
 
 from django.core.management.base import BaseCommand
@@ -22,8 +21,45 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         Feedback.objects.all().delete()
-        self.handle_tweets()
-        self.handle_instagram(max_tag_id='1507810671990037057_5419808626')
+        # self.handle_tweets()
+        # self.handle_instagram(max_tag_id='1507810671990037057_5419808626')
+        self.handle_facebook()
+
+    def answer_to_facebook(self, facebook_api, comment_id, msg):
+        facebook_api.put_object(
+            parent_object=comment_id,
+            connection_name='feed',
+            message=msg
+        )
+        #DOES NOT WORK AT THE MOMENT (needs correct access token?)
+
+    def answer_to_instagram(self, url, media_id, msg):
+        msg = '%s %s' % (msg, url)
+        instagram_api = self.authenticate_instagram()
+        instagram_api.create_media_comment(media_id, msg)
+        return
+
+    def answer_to_tweet(self, url, msg, tweet_id):
+        twitter_api = self.authenticate_twitter()
+        msg = '%s %s' % (msg, url)
+        twitter_api.update_status(msg, tweet_id)
+
+    def authenticate_facebook(sélf):
+        print('authenticating...')
+        token = facebook.GraphAPI().get_app_access_token(
+            settings.FACEBOOK_APP_ID,
+            settings.FACEBOOK_APP_SECRET
+        )
+        # assert(isinstance(token, str) or isinstance(token, unicode))
+        facebook_api = facebook.GraphAPI(access_token = token)
+        return facebook_api
+
+    def authenticate_instagram(self):
+        instagram_api = InstagramAPI(
+            access_token=settings.INSTAGRAM_ACCESS_TOKEN,
+            client_secret=settings.INSTAGRAM_CLIENT_SECRET
+        )
+        return instagram_api
 
     def authenticate_twitter(self):
         twitter_auth = tweepy.OAuthHandler(
@@ -37,13 +73,43 @@ class Command(BaseCommand):
         twitter_api = tweepy.API(twitter_auth)
         return twitter_api
 
-    def authenticate_instagram(self):
-        instagram_api = None
-        instagram_api = InstagramAPI(
-            access_token=settings.INSTAGRAM_ACCESS_TOKEN,
-            client_secret=settings.INSTAGRAM_CLIENT_SECRET
+    def create_ticket(self, source_type, feedback):
+        feedback['api_key'] = settings.HELSINKI_API_KEY
+        feedback['service_code'] = 2809
+        print(feedback)
+        return True
+
+    def handle_facebook(self):
+        facebook_api = self.authenticate_facebook()
+        facebook_feed = facebook_api.get_object(
+            id=settings.FACEBOOK_PAGE_ID,
+            fields='feed'
         )
-        return instagram_api
+        for post in facebook_feed['feed']['data']:
+            if post['message'].find(settings.SEARCH_STRING) == -1:
+                continue
+            else:
+                try:
+                    facebook_db_data = Feedback.objects.create(
+                        ticket_id='facebook-ticket-%s' % (post['id']),
+                        source_id=post['id'],
+                        source_type='facebook',
+                        source_data=post['message'])
+                except IntegrityError as e:
+                    continue
+
+                feedback = self.parse_facebook_data(post, facebook_api)
+
+                if self.create_ticket(facebook_db_data.source_type, feedback) is True:
+                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                    ticket_url = 'seuraapalautettataalla.fi'
+                else:
+                    message = 'Palautteen tallennus epäonnistui'
+                self.answer_to_facebook(facebook_api, post['id'], message)
+
+        # self.parse_facebook_data
+        # self.create_ticket
+        # self.answer_to_facebook
 
     def handle_instagram(
         self,
@@ -69,7 +135,7 @@ class Command(BaseCommand):
             )
         for media in recent_media:
             try:
-                tweet_db_data = Feedback.objects.create(
+                instagram_db_data = Feedback.objects.create(
                     ticket_id='instagram-ticket-%s' % (media.id),
                     source_id=media.id,
                     source_type='instagram',
@@ -78,7 +144,7 @@ class Command(BaseCommand):
                 # media already in db
                 continue
             feedback = self.parse_instagram_data(media)
-            if self.create_ticket(tweet_db_data.source_type, feedback) is True:
+            if self.create_ticket(instagram_db_data.source_type, feedback) is True:
                 message = 'Kiitos! Seuraa etenemistä osoitteessa: '
                 ticket_url = 'seuraapalautettataalla.fi'
             else:
@@ -112,40 +178,46 @@ class Command(BaseCommand):
                 message = 'Palautteen tallennus epäonnistui'
             self.answer_to_tweet(ticket_url, message, tweet.id)
 
-    def answer_to_instagram(self, url, media_id, msg):
-        msg = '%s %s' % (msg, url)
-        instagram_api = self.authenticate_instagram()
-        instagram_api.create_media_comment(media_id, msg)
-        return
+    def parse_name(self, name_string):
+        if ' ' in name_string:
+            name_list = name_string.split(' ')
+        else:
+            name_list[0] = name_string
+            name_list[1] = None
+        return name_list
 
-    def answer_to_tweet(self, url, msg, tweet_id):
-        twitter_api = self.authenticate_twitter()
-        msg = '%s %s' % (msg, url)
-        twitter_api.update_status(msg, tweet_id)
-
-    def create_ticket(self, source_type, feedback):
-        feedback['api_key'] = settings.HELSINKI_API_KEY
-        feedback['service_code'] = 2809
-        print(feedback)
-        return True
+    def parse_facebook_data(self, comment, facebook_api):
+        description_header = 'Feedback via palaute-bot from user '
+        userdata = facebook_api.get_object(id=comment['id'], fields='from')
+        ticket_dict = {}
+        url_to_post = "www.palautteesivoitlukeataalla.fi"
+        name = self.parse_name(userdata['from']['name'])
+        ticket_dict['first_name'] = name[0]
+        ticket_dict['last_name'] = name[1]
+        ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
+            description_header,
+            userdata['from']['name'],
+            comment['message'],
+            url_to_post
+        )
+        ticket_dict['title'] = 'Facebook Feedback'
+        # ticket_dict['lat'] =
+        # ticket_dict['long'] =
+        # ticket_dict['media_url'] =
+        return ticket_dict
 
     def parse_instagram_data(self, media):
         description_header = 'Feedback via palaute-bot from user '
-        name = media.user.full_name
         ticket_dict = {}
-        if ' ' in name:
-            name_list = name.split(' ')
-            ticket_dict['first_name'] = name_list[0]
-            ticket_dict['last_name'] = name_list[1]
-        else:
-            ticket_dict['first_name'] = name
+        name = self.parse_name(media.user.full_name)
+        ticket_dict['first_name'] = name[0]
+        ticket_dict['last_name'] = name[1]
         ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
             description_header,
             media.user.username,
             media.caption.text,
             media.link)
         ticket_dict['title'] = 'Instagram Feedback'
-
         try:
             ticket_dict['lat'] = media.location.point.latitude
             ticket_dict['long'] = media.location.point.latitude
@@ -158,16 +230,11 @@ class Command(BaseCommand):
     def parse_twitter_data(self, tweet):
         url = 'https://twitter.com/'
         url = '%s%s/%s' % (url, tweet.user.screen_name, tweet.id)
-        name = tweet.user.name
         description_header = 'Feedback via palaute-bot from user '
         ticket_dict = {}
-        if ' ' in name:
-            name_list = name.split(' ')
-            ticket_dict['first_name'] = name_list[0]
-            ticket_dict['last_name'] = name_list[1]
-        else:
-            ticket_dict['first_name'] = name
-
+        name = self.parse_name(tweet.user.name)
+        ticket_dict['first_name'] = name[0]
+        ticket_dict['last_name'] = name[1]
         ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
             description_header,
             tweet.user.screen_name,
@@ -175,7 +242,6 @@ class Command(BaseCommand):
             url
         )
         ticket_dict['title'] = 'Twitter Feedback'
-
         if tweet.geo is not None:
             ticket_dict['lat'] = tweet.geo['coordinates'][0]
             ticket_dict['long'] = tweet.geo['coordinates'][1]
@@ -187,14 +253,4 @@ class Command(BaseCommand):
             ticket_dict['media_url'] = tweet_media[0]['media_url_https']
         return ticket_dict
 
-    def parse_facebook_data(self, comment):
-        # ticket_dict['first_name'] =
-        # ticket_dict['last_name'] =
-        # ticket_dict['description'] =
-        # ticket_dict['title'] =
-        # ticket_dict['lat'] =
-        # ticket_dict['long'] =
-        # ticket_dict['media_url'] =
-        # return ticket_dict
-        return True
 # vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
