@@ -17,6 +17,7 @@ INSTAGRAM_ACCESS_TOKEN = getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', None)
 FACEBOOK_APP_ID = getattr(settings, 'FACEBOOK_APP_ID', None)
 FACEBOOK_APP_SECRET = getattr(settings, 'FACEBOOK_APP_SECRET', None)
 FACEBOOK_PAGE_ID = getattr(settings, 'FACEBOOK_PAGE_ID', None)
+FACEBOOK_PAGE_ACCESS_TOKEN = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
 
 HELSINKI_API_KEY = getattr(settings, 'HELSINKI_API_KEY', None)
 SEARCH_STRING = getattr(settings, 'SEARCH_STRING', None)

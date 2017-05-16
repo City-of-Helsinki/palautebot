@@ -23,7 +23,6 @@ class Feedback(models.Model):
     ticket_id = models.CharField(max_length=2048)
     source_id = models.CharField(max_length=2048, unique=True)
     source_type = models.CharField(max_length=2048, choices=SOURCE_TYPE_CHOICES)
-    source_data = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 # vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2

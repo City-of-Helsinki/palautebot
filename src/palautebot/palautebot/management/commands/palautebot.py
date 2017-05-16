@@ -21,8 +21,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         Feedback.objects.all().delete()
-        # self.handle_tweets()
-        # self.handle_instagram(max_tag_id='1507810671990037057_5419808626')
+        self.handle_tweets()
+        self.handle_instagram(max_tag_id='1507810671990037057_5419808626')
         self.handle_facebook()
 
     def answer_to_facebook(self, facebook_api, comment_id, msg):
@@ -31,7 +31,8 @@ class Command(BaseCommand):
             connection_name='feed',
             message=msg
         )
-        #DOES NOT WORK AT THE MOMENT (needs correct access token?)
+        #DOES NOT WORK AT THE MOMENT (needs to be reviewed by fb in order to work.)
+        # Can't submit to be reviewed because needs privacy policy
 
     def answer_to_instagram(self, url, media_id, msg):
         msg = '%s %s' % (msg, url)
@@ -45,13 +46,15 @@ class Command(BaseCommand):
         twitter_api.update_status(msg, tweet_id)
 
     def authenticate_facebook(sélf):
-        print('authenticating...')
-        token = facebook.GraphAPI().get_app_access_token(
-            settings.FACEBOOK_APP_ID,
-            settings.FACEBOOK_APP_SECRET
+        # token = facebook.GraphAPI().get_app_access_token(
+        #     settings.FACEBOOK_APP_ID,
+        #     settings.FACEBOOK_APP_SECRET
+        # )
+        # # assert(isinstance(token, str) or isinstance(token, unicode))
+
+        facebook_api = facebook.GraphAPI(
+            access_token = settings.FACEBOOK_PAGE_ACCESS_TOKEN
         )
-        # assert(isinstance(token, str) or isinstance(token, unicode))
-        facebook_api = facebook.GraphAPI(access_token = token)
         return facebook_api
 
     def authenticate_instagram(self):
@@ -93,23 +96,18 @@ class Command(BaseCommand):
                     facebook_db_data = Feedback.objects.create(
                         ticket_id='facebook-ticket-%s' % (post['id']),
                         source_id=post['id'],
-                        source_type='facebook',
-                        source_data=post['message'])
+                        source_type='facebook')
                 except IntegrityError as e:
+                    #tweet already in db
                     continue
 
                 feedback = self.parse_facebook_data(post, facebook_api)
-
                 if self.create_ticket(facebook_db_data.source_type, feedback) is True:
                     message = 'Kiitos! Seuraa etenemistä osoitteessa: '
                     ticket_url = 'seuraapalautettataalla.fi'
                 else:
                     message = 'Palautteen tallennus epäonnistui'
-                self.answer_to_facebook(facebook_api, post['id'], message)
-
-        # self.parse_facebook_data
-        # self.create_ticket
-        # self.answer_to_facebook
+                # self.answer_to_facebook(facebook_api, post['id'], message)
 
     def handle_instagram(
         self,
@@ -138,8 +136,7 @@ class Command(BaseCommand):
                 instagram_db_data = Feedback.objects.create(
                     ticket_id='instagram-ticket-%s' % (media.id),
                     source_id=media.id,
-                    source_type='instagram',
-                    source_data=media.caption.text)
+                    source_type='instagram')
             except IntegrityError as e:
                 # media already in db
                 continue
@@ -149,7 +146,7 @@ class Command(BaseCommand):
                 ticket_url = 'seuraapalautettataalla.fi'
             else:
                 message = 'Palautteen tallennus epäonnistui'
-            self.answer_to_instagram(ticket_url, media.id, message)
+            # self.answer_to_instagram(ticket_url, media.id, message)
 
     def handle_tweets(
         self,
@@ -165,8 +162,7 @@ class Command(BaseCommand):
                 tweet_db_data = Feedback.objects.create(
                     ticket_id='twitter-ticket-%s' % (tweet.id),
                     source_id=tweet.id,
-                    source_type='twitter',
-                    source_data=tweet.text)
+                    source_type='twitter')
             except IntegrityError as e:
                 # Tweet already in db
                 continue
@@ -176,21 +172,21 @@ class Command(BaseCommand):
                 ticket_url = 'seuraapalautettataalla.fi'
             else:
                 message = 'Palautteen tallennus epäonnistui'
-            self.answer_to_tweet(ticket_url, message, tweet.id)
+            # self.answer_to_tweet(ticket_url, message, tweet.id)
 
     def parse_name(self, name_string):
+        name_list = []
         if ' ' in name_string:
             name_list = name_string.split(' ')
         else:
-            name_list[0] = name_string
-            name_list[1] = None
+            name_list.append(name_string)
+            name_list.append(None)
         return name_list
 
     def parse_facebook_data(self, comment, facebook_api):
         description_header = 'Feedback via palaute-bot from user '
-        userdata = facebook_api.get_object(id=comment['id'], fields='from')
+        userdata = facebook_api.get_object(id=comment['id'], fields='from, permalink_url, place, picture')
         ticket_dict = {}
-        url_to_post = "www.palautteesivoitlukeataalla.fi"
         name = self.parse_name(userdata['from']['name'])
         ticket_dict['first_name'] = name[0]
         ticket_dict['last_name'] = name[1]
@@ -198,12 +194,19 @@ class Command(BaseCommand):
             description_header,
             userdata['from']['name'],
             comment['message'],
-            url_to_post
+            userdata['permalink_url']
         )
         ticket_dict['title'] = 'Facebook Feedback'
-        # ticket_dict['lat'] =
-        # ticket_dict['long'] =
-        # ticket_dict['media_url'] =
+        try:
+            ticket_dict['lat'] = userdata['place']['location']['latitude']
+            ticket_dict['long'] = userdata['place']['location']['longitude']
+        except KeyError as e:
+            ticket_dict['lat'] = None
+            ticket_dict['long'] = None
+        try:
+            ticket_dict['media_url'] = userdata['picture']
+        except KeyError as e:
+            ticket_dict['media_url'] = None
         return ticket_dict
 
     def parse_instagram_data(self, media):
@@ -251,6 +254,8 @@ class Command(BaseCommand):
         if 'media' in tweet.entities:
             tweet_media = tweet.entities['media']
             ticket_dict['media_url'] = tweet_media[0]['media_url_https']
+        else:
+            ticket_dict['media_url'] = None
         return ticket_dict
 
 # vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
