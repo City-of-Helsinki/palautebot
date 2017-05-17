@@ -3,7 +3,9 @@
 import facebook
 import logging
 import pdb
+import pytz
 import requests
+import time
 import tweepy
 
 from django.core.management.base import BaseCommand
@@ -20,10 +22,17 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 
     def handle(self, *args, **options):
-        Feedback.objects.all().delete()
-        self.handle_tweets()
-        self.handle_instagram(max_tag_id='1507810671990037057_5419808626')
-        self.handle_facebook()
+        latest_facebook = Feedback.objects.filter(source_type='facebook').latest('source_created_at')
+        latest_instagram = Feedback.objects.filter(source_type='instagram').latest('source_created_at')
+        latest_twitter = Feedback.objects.filter(source_type='twitter').latest('source_created_at')
+
+        previous_facebook_post_time = latest_facebook.source_created_at
+        previous_instagram_media = latest_instagram.source_id
+        previous_tweet_id = latest_twitter.source_id
+
+        self.handle_facebook(previous_facebook_post_time)
+        self.handle_instagram(max_tag_id=previous_instagram_media)
+        self.handle_tweets(previous_tweet_id)
 
     def answer_to_facebook(self, facebook_api, comment_id, msg):
         facebook_api.put_object(
@@ -82,11 +91,12 @@ class Command(BaseCommand):
         print(feedback)
         return True
 
-    def handle_facebook(self):
+    def handle_facebook(self, previous_post_time):
         facebook_api = self.authenticate_facebook()
         facebook_feed = facebook_api.get_object(
             id=settings.FACEBOOK_PAGE_ID,
-            fields='feed'
+            fields='feed',
+            since=previous_post_time
         )
         for post in facebook_feed['feed']['data']:
             if post['message'].find(settings.SEARCH_STRING) == -1:
@@ -96,7 +106,8 @@ class Command(BaseCommand):
                     facebook_db_data = Feedback.objects.create(
                         ticket_id='facebook-ticket-%s' % (post['id']),
                         source_id=post['id'],
-                        source_type='facebook')
+                        source_type='facebook',
+                        source_created_at=post['created_time'])
                 except IntegrityError as e:
                     #tweet already in db
                     continue
@@ -108,6 +119,7 @@ class Command(BaseCommand):
                 else:
                     message = 'Palautteen tallennus epäonnistui'
                 # self.answer_to_facebook(facebook_api, post['id'], message)
+
 
     def handle_instagram(
         self,
@@ -132,11 +144,14 @@ class Command(BaseCommand):
                 e.status_code)
             )
         for media in recent_media:
+            timezone = pytz.timezone('Europe/Helsinki')
+            time = timezone.localize(media.created_time)
             try:
                 instagram_db_data = Feedback.objects.create(
                     ticket_id='instagram-ticket-%s' % (media.id),
                     source_id=media.id,
-                    source_type='instagram')
+                    source_type='instagram',
+                    source_created_at=time)
             except IntegrityError as e:
                 # media already in db
                 continue
@@ -150,19 +165,23 @@ class Command(BaseCommand):
 
     def handle_tweets(
         self,
+        previous_tweet_id,
         return_count=100,
         search_string=settings.SEARCH_STRING
     ):
         # Queries maximum of 100 latest tweets containing string
         twitter_api = self.authenticate_twitter()
-        all_tweets = twitter_api.search(search_string, rpp=return_count)
+        all_tweets = twitter_api.search(search_string, rpp=return_count, since_id=previous_tweet_id)
         for tweet in all_tweets:
             ticket_url = ''
+            timezone = pytz.timezone('Europe/Helsinki')
+            time = timezone.localize(tweet.created_at)
             try:
                 tweet_db_data = Feedback.objects.create(
                     ticket_id='twitter-ticket-%s' % (tweet.id),
                     source_id=tweet.id,
-                    source_type='twitter')
+                    source_type='twitter',
+                    source_created_at=time)
             except IntegrityError as e:
                 # Tweet already in db
                 continue
