@@ -16,7 +16,7 @@ class Feedback(models.Model):
 
     SOURCE_TYPE_CHOICES = (
         (SOURCE_TYPE_TWITTER, 'Twitter'),
-        (SOURCE_TYPE_INSTAGRAM, 'Facebook'),
+        (SOURCE_TYPE_INSTAGRAM, 'Instagram'),
         (SOURCE_TYPE_FACEBOOK, 'Facebook'),
     )
 

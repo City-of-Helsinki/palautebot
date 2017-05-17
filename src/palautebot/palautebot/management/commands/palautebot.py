@@ -22,6 +22,7 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 
     def handle(self, *args, **options):
+        # Feedback.objects.all().delete()
         latest_facebook = Feedback.objects.filter(source_type='facebook').latest('source_created_at')
         latest_instagram = Feedback.objects.filter(source_type='instagram').latest('source_created_at')
         latest_twitter = Feedback.objects.filter(source_type='twitter').latest('source_created_at')
