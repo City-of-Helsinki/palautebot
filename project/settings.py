@@ -123,7 +123,6 @@ STATIC_ROOT = os.path.join(BASEDIR, '..', 'staticroot')
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-    'compressor.finders.CompressorFinder',
 )
 
 STATICFILES_DIRS = (os.path.join(BASEDIR, 'static'),)
