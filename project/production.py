@@ -9,7 +9,7 @@ SSLIFY_DISABLE = False
 
 # Raven
 RAVEN_CONFIG = {
-    'dsn': os.environ['RAVEN_KEY'],
+    'dsn': os.environ.get('RAVEN_KEY', ''),
 }
 
 INSTALLED_APPS = INSTALLED_APPS + (
