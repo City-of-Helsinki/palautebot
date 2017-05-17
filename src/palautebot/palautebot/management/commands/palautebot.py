@@ -54,7 +54,7 @@ class Command(BaseCommand):
         msg = '%s %s' % (msg, url)
         twitter_api.update_status(msg, tweet_id)
 
-    def authenticate_facebook(sélf):
+    def authenticate_facebook(self):
         # token = facebook.GraphAPI().get_app_access_token(
         #     settings.FACEBOOK_APP_ID,
         #     settings.FACEBOOK_APP_SECRET
