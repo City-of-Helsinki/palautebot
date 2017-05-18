@@ -30,7 +30,7 @@ class Command(BaseCommand):
         )
         redirect_uri = api.get_authorize_login_url(scope=scope)
         info_str = 'Visit this page and authorize access in your browser: '
-        print '%s%s'(info_str, redirect_uri)
+        print('%s%s' % (info_str, redirect_uri))
 
         code = (
             str(

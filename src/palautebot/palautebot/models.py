@@ -21,7 +21,7 @@ class Feedback(models.Model):
     )
 
     ticket_id = models.CharField(max_length=2048)
-    source_id = models.CharField(max_length=2048, unique=True)
+    source_id = models.CharField(max_length=2048)
     source_type = models.CharField(max_length=2048, choices=SOURCE_TYPE_CHOICES)
     source_created_at = models.DateTimeField(default='2017-05-17T09:00:00+0000')
     created_at = models.DateTimeField(auto_now_add=True)

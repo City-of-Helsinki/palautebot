@@ -23,17 +23,32 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Feedback.objects.all().delete()
-        latest_facebook = Feedback.objects.filter(source_type='facebook').latest('source_created_at')
-        latest_instagram = Feedback.objects.filter(source_type='instagram').latest('source_created_at')
-        latest_twitter = Feedback.objects.filter(source_type='twitter').latest('source_created_at')
+        results = Feedback.objects.all()
 
-        previous_facebook_post_time = latest_facebook.source_created_at
-        previous_instagram_media = latest_instagram.source_id
-        previous_tweet_id = latest_twitter.source_id
+        for result in results:
+            print(result.ticket_id)
+        try: 
+            latest_facebook = Feedback.objects.filter(source_type='facebook').latest('source_created_at')
+            previous_facebook_post_time = latest_facebook.source_created_at
+        except Feedback.DoesNotExist as e:
+            logging.info('There is no facebook data in the database table', e)
+            previous_facebook_post_time = None
+        try:
+            latest_instagram = Feedback.objects.filter(source_type='instagram').latest('source_created_at')
+            previous_instagram_media = latest_instagram.source_id
+        except Feedback.DoesNotExist:
+            logging.info('There is no instagram data in the database table', e)
+            previous_instagram_media = None
+        try:
+            latest_twitter = Feedback.objects.filter(source_type='twitter').latest('source_created_at')
+            previous_tweet_id = latest_twitter.source_id
+        except Feedback.DoesNotExist:
+            logging.info('There is no twitter data in the database table', e)
+            previous_tweet_id = None
 
-        self.handle_facebook(previous_facebook_post_time)
+        # self.handle_facebook(previous_facebook_post_time)
         self.handle_instagram(max_tag_id=previous_instagram_media)
-        self.handle_tweets(previous_tweet_id)
+        # self.handle_tweets(previous_tweet_id)
 
     def answer_to_facebook(self, facebook_api, comment_id, msg):
         facebook_api.put_object(
@@ -88,7 +103,7 @@ class Command(BaseCommand):
 
     def create_ticket(self, source_type, feedback):
         feedback['api_key'] = settings.HELSINKI_API_KEY
-        feedback['service_code'] = 2809
+        feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
         print(feedback)
         return True
 
@@ -103,24 +118,25 @@ class Command(BaseCommand):
             if post['message'].find(settings.SEARCH_STRING) == -1:
                 continue
             else:
-                try:
-                    facebook_db_data = Feedback.objects.create(
-                        ticket_id='facebook-ticket-%s' % (post['id']),
-                        source_id=post['id'],
-                        source_type='facebook',
-                        source_created_at=post['created_time'])
-                except IntegrityError as e:
-                    #tweet already in db
+                facebook_db_data, created = Feedback.objects.get_or_create(
+                    source_id=post['id'],
+                    source_type='facebook',
+                    defaults={
+                        'ticket_id': 'facebook-ticket-%s' % (post['id']),
+                        'source_created_at':post['created_time']
+                    }
+                )
+                if created == False:
+                    #Record already in db
                     continue
-
-                feedback = self.parse_facebook_data(post, facebook_api)
-                if self.create_ticket(facebook_db_data.source_type, feedback) is True:
-                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                    ticket_url = 'seuraapalautettataalla.fi'
                 else:
-                    message = 'Palautteen tallennus epäonnistui'
-                # self.answer_to_facebook(facebook_api, post['id'], message)
-
+                    feedback = self.parse_facebook_data(post, facebook_api)
+                    if self.create_ticket(facebook_db_data.source_type, feedback) is True:
+                        message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                        ticket_url = 'seuraapalautettataalla.fi'
+                    else:
+                        message = 'Palautteen tallennus epäonnistui'
+                    # self.answer_to_facebook(facebook_api, post['id'], message)
 
     def handle_instagram(
         self,
@@ -129,7 +145,7 @@ class Command(BaseCommand):
         return_count=60
     ):
         # Commenting with api is resticted to 60times/hour
-        # Queries 60 next instagram pictures containing string
+        # Queries max 60 next instagram pictures containing string
         # and starting from max_tag_id
         instagram_api = self.authenticate_instagram()
         search_string = search_string.replace('#', '')
@@ -141,28 +157,33 @@ class Command(BaseCommand):
                 tag_name=search_string
             )
         except InstagramAPIError as e:
+            logging.info('Couldn\'t fetch data from instagram', e)
             print('Couldnt fetch data from instagram. Error: %s' % (
                 e.status_code)
             )
         for media in recent_media:
             timezone = pytz.timezone('Europe/Helsinki')
             time = timezone.localize(media.created_time)
-            try:
-                instagram_db_data = Feedback.objects.create(
-                    ticket_id='instagram-ticket-%s' % (media.id),
-                    source_id=media.id,
-                    source_type='instagram',
-                    source_created_at=time)
-            except IntegrityError as e:
-                # media already in db
+
+            instagram_db_data, created = Feedback.objects.get_or_create(
+                source_id=media.id,
+                source_type='instagram',
+                defaults={
+                    'ticket_id': 'instagram-ticket-%s' % (media.id),
+                    'source_created_at':time
+                }
+            )
+            if created == False:
+                #Record already in db
                 continue
-            feedback = self.parse_instagram_data(media)
-            if self.create_ticket(instagram_db_data.source_type, feedback) is True:
-                message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                ticket_url = 'seuraapalautettataalla.fi'
             else:
-                message = 'Palautteen tallennus epäonnistui'
-            # self.answer_to_instagram(ticket_url, media.id, message)
+                feedback = self.parse_instagram_data(media)
+                if self.create_ticket(instagram_db_data.source_type, feedback) is True:
+                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                    ticket_url = 'seuraapalautettataalla.fi'
+                else:
+                    message = 'Palautteen tallennus epäonnistui'
+                # self.answer_to_instagram(ticket_url, media.id, message)
 
     def handle_tweets(
         self,
@@ -177,22 +198,25 @@ class Command(BaseCommand):
             ticket_url = ''
             timezone = pytz.timezone('Europe/Helsinki')
             time = timezone.localize(tweet.created_at)
-            try:
-                tweet_db_data = Feedback.objects.create(
-                    ticket_id='twitter-ticket-%s' % (tweet.id),
-                    source_id=tweet.id,
-                    source_type='twitter',
-                    source_created_at=time)
-            except IntegrityError as e:
-                # Tweet already in db
+            tweet_db_data, created = Feedback.objects.get_or_create(
+                source_id=tweet.id,
+                source_type='twitter',
+                defaults={
+                    'ticket_id': 'twitter-ticket-%s' % (tweet.id),
+                    'source_created_at':time
+                }
+            )
+            if created == False:
+                #Record already in db
                 continue
-            feedback = self.parse_twitter_data(tweet)
-            if(self.create_ticket(tweet_db_data.source_type, feedback)):
-                message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                ticket_url = 'seuraapalautettataalla.fi'
             else:
-                message = 'Palautteen tallennus epäonnistui'
-            # self.answer_to_tweet(ticket_url, message, tweet.id)
+                feedback = self.parse_twitter_data(tweet)
+                if(self.create_ticket(tweet_db_data.source_type, feedback)):
+                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                    ticket_url = 'seuraapalautettataalla.fi'
+                else:
+                    message = 'Palautteen tallennus epäonnistui'
+                # self.answer_to_tweet(ticket_url, message, tweet.id)
 
     def parse_name(self, name_string):
         name_list = []
@@ -221,11 +245,13 @@ class Command(BaseCommand):
             ticket_dict['lat'] = userdata['place']['location']['latitude']
             ticket_dict['long'] = userdata['place']['location']['longitude']
         except KeyError as e:
+            logging.info('There is no location data in userdata', e)
             ticket_dict['lat'] = None
             ticket_dict['long'] = None
         try:
             ticket_dict['media_url'] = userdata['picture']
         except KeyError as e:
+            logging.info('There is no picture in userdata', e)
             ticket_dict['media_url'] = None
         return ticket_dict
 
