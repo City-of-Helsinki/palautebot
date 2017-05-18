@@ -27,20 +27,26 @@ class Command(BaseCommand):
 
         for result in results:
             print(result.ticket_id)
-        try: 
-            latest_facebook = Feedback.objects.filter(source_type='facebook').latest('source_created_at')
+        try:
+            latest_facebook = Feedback.objects.filter(
+                source_type='facebook'
+            ).latest('source_created_at')
             previous_facebook_post_time = latest_facebook.source_created_at
         except Feedback.DoesNotExist as e:
             logging.info('There is no facebook data in the database table', e)
             previous_facebook_post_time = None
         try:
-            latest_instagram = Feedback.objects.filter(source_type='instagram').latest('source_created_at')
+            latest_instagram = Feedback.objects.filter(
+                source_type='instagram'
+            ).latest('source_created_at')
             previous_instagram_media = latest_instagram.source_id
         except Feedback.DoesNotExist:
             logging.info('There is no instagram data in the database table', e)
             previous_instagram_media = None
         try:
-            latest_twitter = Feedback.objects.filter(source_type='twitter').latest('source_created_at')
+            latest_twitter = Feedback.objects.filter(
+                source_type='twitter'
+            ).latest('source_created_at')
             previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist:
             logging.info('There is no twitter data in the database table', e)
@@ -56,7 +62,8 @@ class Command(BaseCommand):
             connection_name='feed',
             message=msg
         )
-        #DOES NOT WORK AT THE MOMENT (needs to be reviewed by fb in order to work.)
+        # DOES NOT WORK AT THE MOMENT
+        # (needs to be reviewed by fb in order to work.)
         # Can't submit to be reviewed because needs privacy policy
 
     def answer_to_instagram(self, url, media_id, msg):
@@ -78,7 +85,7 @@ class Command(BaseCommand):
         # # assert(isinstance(token, str) or isinstance(token, unicode))
 
         facebook_api = facebook.GraphAPI(
-            access_token = settings.FACEBOOK_PAGE_ACCESS_TOKEN
+            access_token=settings.FACEBOOK_PAGE_ACCESS_TOKEN
         )
         return facebook_api
 
@@ -123,15 +130,18 @@ class Command(BaseCommand):
                     source_type='facebook',
                     defaults={
                         'ticket_id': 'facebook-ticket-%s' % (post['id']),
-                        'source_created_at':post['created_time']
+                        'source_created_at': post['created_time']
                     }
                 )
-                if created == False:
-                    #Record already in db
+                if created is False:
+                    # Record already in db
                     continue
                 else:
                     feedback = self.parse_facebook_data(post, facebook_api)
-                    if self.create_ticket(facebook_db_data.source_type, feedback) is True:
+                    if self.create_ticket(
+                        facebook_db_data.source_type,
+                        feedback
+                    ) is True:
                         message = 'Kiitos! Seuraa etenemistä osoitteessa: '
                         ticket_url = 'seuraapalautettataalla.fi'
                     else:
@@ -170,15 +180,18 @@ class Command(BaseCommand):
                 source_type='instagram',
                 defaults={
                     'ticket_id': 'instagram-ticket-%s' % (media.id),
-                    'source_created_at':time
+                    'source_created_at': time
                 }
             )
-            if created == False:
-                #Record already in db
+            if created is False:
+                # Record already in db
                 continue
             else:
                 feedback = self.parse_instagram_data(media)
-                if self.create_ticket(instagram_db_data.source_type, feedback) is True:
+                if self.create_ticket(
+                    instagram_db_data.source_type,
+                    feedback
+                ) is True:
                     message = 'Kiitos! Seuraa etenemistä osoitteessa: '
                     ticket_url = 'seuraapalautettataalla.fi'
                 else:
@@ -193,7 +206,11 @@ class Command(BaseCommand):
     ):
         # Queries maximum of 100 latest tweets containing string
         twitter_api = self.authenticate_twitter()
-        all_tweets = twitter_api.search(search_string, rpp=return_count, since_id=previous_tweet_id)
+        all_tweets = twitter_api.search(
+            search_string,
+            rpp=return_count,
+            since_id=previous_tweet_id
+        )
         for tweet in all_tweets:
             ticket_url = ''
             timezone = pytz.timezone('Europe/Helsinki')
@@ -203,11 +220,11 @@ class Command(BaseCommand):
                 source_type='twitter',
                 defaults={
                     'ticket_id': 'twitter-ticket-%s' % (tweet.id),
-                    'source_created_at':time
+                    'source_created_at': time
                 }
             )
-            if created == False:
-                #Record already in db
+            if created is False:
+                # Record already in db
                 continue
             else:
                 feedback = self.parse_twitter_data(tweet)
@@ -229,7 +246,10 @@ class Command(BaseCommand):
 
     def parse_facebook_data(self, comment, facebook_api):
         description_header = 'Feedback via palaute-bot from user '
-        userdata = facebook_api.get_object(id=comment['id'], fields='from, permalink_url, place, picture')
+        userdata = facebook_api.get_object(
+            id=comment['id'],
+            fields='from, permalink_url, place, picture'
+        )
         ticket_dict = {}
         name = self.parse_name(userdata['from']['name'])
         ticket_dict['first_name'] = name[0]
