@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import facebook
 import logging
-import pdb
 import pytz
 import requests
 import time
@@ -23,9 +22,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Feedback.objects.all().delete()
-        results = Feedback.objects.all()
 
-        for result in results:
+        for result in Feedback.objects.all():
             print(result.ticket_id)
         try:
             latest_facebook = Feedback.objects.filter(
@@ -40,7 +38,7 @@ class Command(BaseCommand):
                 source_type='instagram'
             ).latest('source_created_at')
             previous_instagram_media = latest_instagram.source_id
-        except Feedback.DoesNotExist:
+        except Feedback.DoesNotExist as e:
             logging.info('There is no instagram data in the database table', e)
             previous_instagram_media = None
         try:
@@ -48,13 +46,13 @@ class Command(BaseCommand):
                 source_type='twitter'
             ).latest('source_created_at')
             previous_tweet_id = latest_twitter.source_id
-        except Feedback.DoesNotExist:
+        except Feedback.DoesNotExist as e:
             logging.info('There is no twitter data in the database table', e)
             previous_tweet_id = None
 
-        # self.handle_facebook(previous_facebook_post_time)
+        self.handle_facebook(previous_facebook_post_time)
         self.handle_instagram(max_tag_id=previous_instagram_media)
-        # self.handle_tweets(previous_tweet_id)
+        self.handle_tweets(previous_tweet_id)
 
     def answer_to_facebook(self, facebook_api, comment_id, msg):
         facebook_api.put_object(
@@ -160,21 +158,21 @@ class Command(BaseCommand):
         instagram_api = self.authenticate_instagram()
         search_string = search_string.replace('#', '')
         try:
-            # max_tag_id should be the last checked feedback id
-            recent_media, next_ = instagram_api.user_recent_media(
-                max_tag_id=max_tag_id,
+            recent_media, next_ = instagram_api.tag_recent_media(
                 count=return_count,
+                max_tag_id=max_tag_id,
                 tag_name=search_string
             )
         except InstagramAPIError as e:
             logging.info('Couldn\'t fetch data from instagram', e)
-            print('Couldnt fetch data from instagram. Error: %s' % (
-                e.status_code)
-            )
+            if e != '400':
+                logging.info('Couldnt fetch data from instagram', e)
+            else:
+                logging.info('No new instagram data', e)
+            return
         for media in recent_media:
             timezone = pytz.timezone('Europe/Helsinki')
             time = timezone.localize(media.created_time)
-
             instagram_db_data, created = Feedback.objects.get_or_create(
                 source_id=media.id,
                 source_type='instagram',
@@ -197,7 +195,6 @@ class Command(BaseCommand):
                 else:
                     message = 'Palautteen tallennus epäonnistui'
                 # self.answer_to_instagram(ticket_url, media.id, message)
-
     def handle_tweets(
         self,
         previous_tweet_id,

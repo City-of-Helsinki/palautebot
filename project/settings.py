@@ -23,6 +23,7 @@ FACEBOOK_PAGE_ID = os.environ.get('FACEBOOK_PAGE_ID', None)
 FACEBOOK_PAGE_ACCESS_TOKEN = os.environ.get('FACEBOOK_PAGE_ACCESS_TOKEN', None)
 
 HELSINKI_API_KEY = os.environ.get('HELSINKI_API_KEY', None)
+HELSINKI_API_SERVICE_CODE = os.environ.get('HELSINKI_API_SERVICE_CODE', None)
 SEARCH_STRINGT= os.environ.get('SEARCH_STRING', None)
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))

@@ -20,4 +20,5 @@ FACEBOOK_PAGE_ID = getattr(settings, 'FACEBOOK_PAGE_ID', None)
 FACEBOOK_PAGE_ACCESS_TOKEN = getattr(settings, 'FACEBOOK_PAGE_ACCESS_TOKEN', None)
 
 HELSINKI_API_KEY = getattr(settings, 'HELSINKI_API_KEY', None)
+HELSINKI_API_SERVICE_CODE = getattr(settings, 'HELSINKI_API_SERVICE_CODE', None)
 SEARCH_STRING = getattr(settings, 'SEARCH_STRING', None)
