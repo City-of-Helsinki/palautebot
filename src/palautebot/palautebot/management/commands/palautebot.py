@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import facebook
 import logging
@@ -120,7 +119,7 @@ class Command(BaseCommand):
             since=previous_post_time
         )
         for post in facebook_feed['feed']['data']:
-            if post['message'].find(settings.SEARCH_STRING) == -1:
+            if settings.SEARCH_STRING not in post['message']:
                 continue
             else:
                 facebook_db_data, created = Feedback.objects.get_or_create(
@@ -195,6 +194,7 @@ class Command(BaseCommand):
                 else:
                     message = 'Palautteen tallennus epäonnistui'
                 # self.answer_to_instagram(ticket_url, media.id, message)
+
     def handle_tweets(
         self,
         previous_tweet_id,
