@@ -8,3 +8,4 @@ local_settings.py
 *.egg-info
 *.orig
 requirements_old.txt
+core
