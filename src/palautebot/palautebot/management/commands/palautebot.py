@@ -13,6 +13,10 @@ from instagram.client import InstagramAPI
 from palautebot import settings
 from palautebot.models import Feedback
 
+import json
+import pickle
+import pdb
+
 LOG = logging.getLogger(__name__)
 
 
@@ -61,7 +65,6 @@ class Command(BaseCommand):
         )
         # DOES NOT WORK AT THE MOMENT
         # (needs to be reviewed by fb in order to work.)
-        # Can't submit to be reviewed because needs privacy policy
 
     def answer_to_instagram(self, url, media_id, msg):
         msg = '%s %s' % (msg, url)
@@ -75,12 +78,6 @@ class Command(BaseCommand):
         twitter_api.update_status(msg, tweet_id)
 
     def authenticate_facebook(self):
-        # token = facebook.GraphAPI().get_app_access_token(
-        #     settings.FACEBOOK_APP_ID,
-        #     settings.FACEBOOK_APP_SECRET
-        # )
-        # # assert(isinstance(token, str) or isinstance(token, unicode))
-
         facebook_api = facebook.GraphAPI(
             access_token=settings.FACEBOOK_PAGE_ACCESS_TOKEN
         )
@@ -118,6 +115,7 @@ class Command(BaseCommand):
             fields='feed',
             since=previous_post_time
         )
+        pdb.set_trace()
         for post in facebook_feed['feed']['data']:
             if settings.SEARCH_STRING not in post['message']:
                 continue
