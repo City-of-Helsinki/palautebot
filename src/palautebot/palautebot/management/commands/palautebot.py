@@ -13,8 +13,6 @@ from instagram.client import InstagramAPI
 from palautebot import settings
 from palautebot.models import Feedback
 
-import json
-import pickle
 import pdb
 
 LOG = logging.getLogger(__name__)
@@ -24,7 +22,7 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 
     def handle(self, *args, **options):
-        # Feedback.objects.all().delete()
+        Feedback.objects.all().delete()
 
         for result in Feedback.objects.all():
             print(result.ticket_id)
@@ -78,6 +76,8 @@ class Command(BaseCommand):
         twitter_api.update_status(msg, tweet_id)
 
     def authenticate_facebook(self):
+        # This function constructs facebook_api object 
+        # that's used in querying facebook data
         facebook_api = facebook.GraphAPI(
             access_token=settings.FACEBOOK_PAGE_ACCESS_TOKEN
         )
@@ -109,40 +109,46 @@ class Command(BaseCommand):
         return True
 
     def handle_facebook(self, previous_post_time):
+        success_list = []
         facebook_api = self.authenticate_facebook()
-        facebook_feed = facebook_api.get_object(
-            id=settings.FACEBOOK_PAGE_ID,
-            fields='feed',
+        facebook_feed = facebook_api.get_connections(
+            settings.FACEBOOK_PAGE_ID,
+            'feed',
+            fields= 'id, created_time, message, picture, from, permalink_url, place',
             since=previous_post_time
         )
-        pdb.set_trace()
-        for post in facebook_feed['feed']['data']:
-            if settings.SEARCH_STRING not in post['message']:
-                continue
-            else:
-                facebook_db_data, created = Feedback.objects.get_or_create(
-                    source_id=post['id'],
-                    source_type='facebook',
-                    defaults={
-                        'ticket_id': 'facebook-ticket-%s' % (post['id']),
-                        'source_created_at': post['created_time']
-                    }
-                )
-                if created is False:
-                    # Record already in db
+        for post in facebook_feed['data']:
+            if 'message' in post:
+                if settings.SEARCH_STRING not in post['message']:
+                    success_list.append(False)
                     continue
                 else:
-                    feedback = self.parse_facebook_data(post, facebook_api)
-                    if self.create_ticket(
-                        facebook_db_data.source_type,
-                        feedback
-                    ) is True:
-                        message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                        ticket_url = 'seuraapalautettataalla.fi'
+                    facebook_db_data, created = Feedback.objects.get_or_create(
+                        source_id=post['id'],
+                        source_type='facebook',
+                        defaults={
+                            'ticket_id': 'facebook-ticket-%s' % (post['id']),
+                            'source_created_at': post['created_time']
+                        }
+                    )
+                    if created is False:
+                        # Record already in db
+                        success_list.append(False)
+                        continue
                     else:
-                        message = 'Palautteen tallennus epäonnistui'
-                    # self.answer_to_facebook(facebook_api, post['id'], message)
-
+                        feedback = self.parse_facebook_data(post, facebook_api)
+                        if self.create_ticket(
+                            facebook_db_data.source_type,
+                            feedback
+                        ) is True:
+                            message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                            ticket_url = 'seuraapalautettataalla.fi'
+                            success_list.append(True)
+                        else:
+                            message = 'Palautteen tallennus epäonnistui'
+                            success_list.append(False)
+                        # self.answer_to_facebook(facebook_api, post['id'], message)
+        return success_list
     def handle_instagram(
         self,
         max_tag_id,
@@ -241,32 +247,28 @@ class Command(BaseCommand):
 
     def parse_facebook_data(self, comment, facebook_api):
         description_header = 'Feedback via palaute-bot from user '
-        userdata = facebook_api.get_object(
-            id=comment['id'],
-            fields='from, permalink_url, place, picture'
-        )
         ticket_dict = {}
-        name = self.parse_name(userdata['from']['name'])
+        name = self.parse_name(comment['from']['name'])
         ticket_dict['first_name'] = name[0]
         ticket_dict['last_name'] = name[1]
         ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
             description_header,
-            userdata['from']['name'],
+            comment['from']['name'],
             comment['message'],
-            userdata['permalink_url']
+            comment['permalink_url']
         )
         ticket_dict['title'] = 'Facebook Feedback'
         try:
-            ticket_dict['lat'] = userdata['place']['location']['latitude']
-            ticket_dict['long'] = userdata['place']['location']['longitude']
+            ticket_dict['lat'] = comment['place']['location']['latitude']
+            ticket_dict['long'] = comment['place']['location']['longitude']
         except KeyError as e:
-            logging.info('There is no location data in userdata', e)
+            logging.info('There is no location data in the post', e)
             ticket_dict['lat'] = None
             ticket_dict['long'] = None
         try:
-            ticket_dict['media_url'] = userdata['picture']
+            ticket_dict['media_url'] = comment['picture']
         except KeyError as e:
-            logging.info('There is no picture in userdata', e)
+            logging.info('There is no picture in the post', e)
             ticket_dict['media_url'] = None
         return ticket_dict
 
