@@ -32,7 +32,6 @@ class Command(BaseCommand):
             ).latest('source_created_at')
             previous_facebook_post_time = latest_facebook.source_created_at
         except Feedback.DoesNotExist as e:
-            logging.info('There is no facebook data in the database table', e)
             previous_facebook_post_time = None
         try:
             latest_instagram = Feedback.objects.filter(
@@ -40,7 +39,6 @@ class Command(BaseCommand):
             ).latest('source_created_at')
             previous_instagram_media = latest_instagram.source_id
         except Feedback.DoesNotExist as e:
-            logging.info('There is no instagram data in the database table', e)
             previous_instagram_media = None
         try:
             latest_twitter = Feedback.objects.filter(
@@ -48,7 +46,6 @@ class Command(BaseCommand):
             ).latest('source_created_at')
             previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist as e:
-            logging.info('There is no twitter data in the database table', e)
             previous_tweet_id = None
 
         self.handle_facebook(previous_facebook_post_time)
@@ -109,7 +106,7 @@ class Command(BaseCommand):
         return True
 
     def handle_facebook(self, previous_post_time):
-        success_list = []
+        success_list_facebook = []
         facebook_api = self.authenticate_facebook()
         facebook_feed = facebook_api.get_connections(
             settings.FACEBOOK_PAGE_ID,
@@ -120,7 +117,7 @@ class Command(BaseCommand):
         for post in facebook_feed['data']:
             if 'message' in post:
                 if settings.SEARCH_STRING not in post['message']:
-                    success_list.append(False)
+                    success_list_facebook.append(False)
                     continue
                 else:
                     facebook_db_data, created = Feedback.objects.get_or_create(
@@ -133,7 +130,7 @@ class Command(BaseCommand):
                     )
                     if created is False:
                         # Record already in db
-                        success_list.append(False)
+                        success_list_facebook.append(False)
                         continue
                     else:
                         feedback = self.parse_facebook_data(post, facebook_api)
@@ -143,12 +140,12 @@ class Command(BaseCommand):
                         ) is True:
                             message = 'Kiitos! Seuraa etenemistä osoitteessa: '
                             ticket_url = 'seuraapalautettataalla.fi'
-                            success_list.append(True)
+                            success_list_facebook.append(True)
                         else:
                             message = 'Palautteen tallennus epäonnistui'
-                            success_list.append(False)
+                            success_list_facebook.append(False)
                         # self.answer_to_facebook(facebook_api, post['id'], message)
-        return success_list
+        return success_list_facebook
     def handle_instagram(
         self,
         max_tag_id,
@@ -158,6 +155,7 @@ class Command(BaseCommand):
         # Commenting with api is resticted to 60times/hour
         # Queries max 60 next instagram pictures containing string
         # and starting from max_tag_id
+        success_list_instagram = []
         instagram_api = self.authenticate_instagram()
         search_string = search_string.replace('#', '')
         try:
@@ -167,38 +165,42 @@ class Command(BaseCommand):
                 tag_name=search_string
             )
         except InstagramAPIError as e:
-            logging.info('Couldn\'t fetch data from instagram', e)
-            if e != '400':
-                logging.info('Couldnt fetch data from instagram', e)
-            else:
-                logging.info('No new instagram data', e)
-            return
-        for media in recent_media:
-            timezone = pytz.timezone('Europe/Helsinki')
-            time = timezone.localize(media.created_time)
-            instagram_db_data, created = Feedback.objects.get_or_create(
-                source_id=media.id,
-                source_type='instagram',
-                defaults={
-                    'ticket_id': 'instagram-ticket-%s' % (media.id),
-                    'source_created_at': time
-                }
-            )
-            if created is False:
-                # Record already in db
-                continue
-            else:
-                feedback = self.parse_instagram_data(media)
-                if self.create_ticket(
-                    instagram_db_data.source_type,
-                    feedback
-                ) is True:
-                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                    ticket_url = 'seuraapalautettataalla.fi'
+            LOG.DEBUG('Couldn\'t fetch data from instagram', e)
+            if e == '400':
+                LOG.info('No new instagram data')
+            success_list_instagram.append(False)
+            return success_list_instagram
+        if 'id' in recent_media[0]:
+            for media in recent_media:
+                timezone = pytz.timezone('Europe/Helsinki')
+                time = timezone.localize(media.created_time)
+                instagram_db_data, created = Feedback.objects.get_or_create(
+                    source_id=media.id,
+                    source_type='instagram',
+                    defaults={
+                        'ticket_id': 'instagram-ticket-%s' % (media.id),
+                        'source_created_at': time
+                    }
+                )
+                if created is False:
+                    # Record already in db
+                    success_list_instagram.append(False)
+                    continue
                 else:
-                    message = 'Palautteen tallennus epäonnistui'
-                # self.answer_to_instagram(ticket_url, media.id, message)
-
+                    feedback = self.parse_instagram_data(media)
+                    if self.create_ticket(
+                        instagram_db_data.source_type,
+                        feedback
+                    ) is True:
+                        message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                        ticket_url = 'seuraapalautettataalla.fi'
+                        success_list_instagram.append(True)
+                    else:
+                        message = 'Palautteen tallennus epäonnistui'
+                        success_list_instagram.append(False)
+                    # self.answer_to_instagram(ticket_url, media.id, message)
+            return success_list_instagram
+        return success_list_instagram
     def handle_tweets(
         self,
         previous_tweet_id,
@@ -262,13 +264,11 @@ class Command(BaseCommand):
             ticket_dict['lat'] = comment['place']['location']['latitude']
             ticket_dict['long'] = comment['place']['location']['longitude']
         except KeyError as e:
-            logging.info('There is no location data in the post', e)
             ticket_dict['lat'] = None
             ticket_dict['long'] = None
         try:
             ticket_dict['media_url'] = comment['picture']
         except KeyError as e:
-            logging.info('There is no picture in the post', e)
             ticket_dict['media_url'] = None
         return ticket_dict
 
@@ -320,5 +320,4 @@ class Command(BaseCommand):
         else:
             ticket_dict['media_url'] = None
         return ticket_dict
-
-# vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
+# vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2 
