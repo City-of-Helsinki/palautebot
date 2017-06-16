@@ -22,10 +22,10 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 
     def handle(self, *args, **options):
-        Feedback.objects.all().delete()
+        # Feedback.objects.all().delete()
 
         for result in Feedback.objects.all():
-            print(result.ticket_id)
+            print('%s is in the db' % (result.ticket_id))
         try:
             latest_facebook = Feedback.objects.filter(
                 source_type='facebook'
@@ -50,44 +50,71 @@ class Command(BaseCommand):
 
         self.handle_facebook(previous_facebook_post_time)
         self.handle_instagram(max_tag_id=previous_instagram_media)
-        self.handle_tweets(previous_tweet_id)
+        self.handle_twitter(previous_tweet_id)
 
-    def answer_to_facebook(self, facebook_api, comment_id, msg):
-        facebook_api.put_object(
-            parent_object=comment_id,
-            connection_name='feed',
-            message=msg
-        )
+    def answer_to_facebook(self, facebook_api, comment_id, msg, url):
+        msg = '%s %s' % (msg, url)
+        # answer_obj = facebook_api.put_object(
+        #     parent_object=comment_id,
+        #     connection_name='feed',
+        #     message=msg
+        # )
         # DOES NOT WORK AT THE MOMENT
         # (needs to be reviewed by fb in order to work.)
+        # if answer_obj['data'] != []
+        #     return True
+        # else
+        #     return False
+        return True
 
-    def answer_to_instagram(self, url, media_id, msg):
+    def answer_to_instagram(self, instagram_api, url, media_id, msg):
         msg = '%s %s' % (msg, url)
-        instagram_api = self.authenticate_instagram()
-        instagram_api.create_media_comment(media_id, msg)
-        return
+        # instagram_answer = instagram_api.create_media_comment(media_id, msg)
+        # if instagram_answer == []:
+        #     instagram_answered = True
+        # else:
+        #     instagram_answered = False
+        # return instagram_answered
+        return True
 
-    def answer_to_tweet(self, url, msg, tweet_id):
-        twitter_api = self.authenticate_twitter()
+    def answer_to_tweet(self, twitter_api, url, msg, tweet_id):
         msg = '%s %s' % (msg, url)
-        twitter_api.update_status(msg, tweet_id)
+        tweet_answer = []
+        # try:
+        #     tweet_answer = twitter_api.update_status(
+        #         msg,
+        #         in_reply_to_status_id=tweet_id
+        #     )
+        # except tweepy.error.TweepError as e:
+        #     tweet_answered = False
+        # if tweet_answer != []:
+        #     tweet_answered = True
+        # else:
+        #     tweet_answered = False
+        # return tweet_answered
+        return True
 
-    def authenticate_facebook(self):
-        # This function constructs facebook_api object 
-        # that's used in querying facebook data
+    def create_ticket(self, source_type, feedback):
+        feedback['api_key'] = settings.HELSINKI_API_KEY
+        feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
+        print(feedback)
+        return True
+
+    def initialize_facebook(self):
+        # This function constructs facebook_api object
         facebook_api = facebook.GraphAPI(
             access_token=settings.FACEBOOK_PAGE_ACCESS_TOKEN
         )
         return facebook_api
 
-    def authenticate_instagram(self):
+    def initialize_instagram(self):
         instagram_api = InstagramAPI(
             access_token=settings.INSTAGRAM_ACCESS_TOKEN,
             client_secret=settings.INSTAGRAM_CLIENT_SECRET
         )
         return instagram_api
 
-    def authenticate_twitter(self):
+    def initialize_twitter(self):
         twitter_auth = tweepy.OAuthHandler(
             settings.TWITTER_CONSUMER_KEY,
             settings.TWITTER_CONSUMER_SECRET
@@ -99,19 +126,14 @@ class Command(BaseCommand):
         twitter_api = tweepy.API(twitter_auth)
         return twitter_api
 
-    def create_ticket(self, source_type, feedback):
-        feedback['api_key'] = settings.HELSINKI_API_KEY
-        feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
-        print(feedback)
-        return True
-
     def handle_facebook(self, previous_post_time):
         success_list_facebook = []
-        facebook_api = self.authenticate_facebook()
+        facebook_api = self.initialize_facebook()
         facebook_feed = facebook_api.get_connections(
             settings.FACEBOOK_PAGE_ID,
             'feed',
-            fields= 'id, created_time, message, picture, from, permalink_url, place',
+            fields='''id, created_time, message, picture, from,
+                permalink_url, place''',
             since=previous_post_time
         )
         for post in facebook_feed['data']:
@@ -144,8 +166,17 @@ class Command(BaseCommand):
                         else:
                             message = 'Palautteen tallennus epäonnistui'
                             success_list_facebook.append(False)
-                        # self.answer_to_facebook(facebook_api, post['id'], message)
+                        answer_successful = self.answer_to_facebook(
+                            facebook_api,
+                            post['id'],
+                            message,
+                            ticket_url
+                        )
+        else:
+            if success_list_facebook == []:
+                success_list_facebook.append(False)
         return success_list_facebook
+
     def handle_instagram(
         self,
         max_tag_id,
@@ -156,64 +187,71 @@ class Command(BaseCommand):
         # Queries max 60 next instagram pictures containing string
         # and starting from max_tag_id
         success_list_instagram = []
-        instagram_api = self.authenticate_instagram()
+        instagram_api = self.initialize_instagram()
         search_string = search_string.replace('#', '')
         try:
             recent_media, next_ = instagram_api.tag_recent_media(
                 count=return_count,
-                max_tag_id=max_tag_id,
+                max_tag='max_tag_id',
                 tag_name=search_string
             )
         except InstagramAPIError as e:
-            LOG.DEBUG('Couldn\'t fetch data from instagram', e)
-            if e == '400':
-                LOG.info('No new instagram data')
+            LOG.info('Couldn\'t fetch data from instagram', e)
             success_list_instagram.append(False)
             return success_list_instagram
-        if 'id' in recent_media[0]:
-            for media in recent_media:
-                timezone = pytz.timezone('Europe/Helsinki')
-                time = timezone.localize(media.created_time)
-                instagram_db_data, created = Feedback.objects.get_or_create(
-                    source_id=media.id,
-                    source_type='instagram',
-                    defaults={
-                        'ticket_id': 'instagram-ticket-%s' % (media.id),
-                        'source_created_at': time
-                    }
-                )
-                if created is False:
-                    # Record already in db
-                    success_list_instagram.append(False)
-                    continue
+        for media in recent_media:
+            timezone = pytz.timezone('Europe/Helsinki')
+            time = timezone.localize(media.created_time)
+            instagram_db_data, created = Feedback.objects.get_or_create(
+                source_id=media.id,
+                source_type='instagram',
+                defaults={
+                    'ticket_id': 'instagram-ticket-%s' % (media.id),
+                    'source_created_at': time
+                }
+            )
+            if created is False:
+                # Record already in db
+                success_list_instagram.append(False)
+                continue
+            else:
+                feedback = self.parse_instagram_data(media)
+                if self.create_ticket(
+                    instagram_db_data.source_type,
+                    feedback
+                ) is True:
+                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                    ticket_url = 'seuraapalautettataalla.fi'
+                    success_list_instagram.append(True)
                 else:
-                    feedback = self.parse_instagram_data(media)
-                    if self.create_ticket(
-                        instagram_db_data.source_type,
-                        feedback
-                    ) is True:
-                        message = 'Kiitos! Seuraa etenemistä osoitteessa: '
-                        ticket_url = 'seuraapalautettataalla.fi'
-                        success_list_instagram.append(True)
-                    else:
-                        message = 'Palautteen tallennus epäonnistui'
-                        success_list_instagram.append(False)
-                    # self.answer_to_instagram(ticket_url, media.id, message)
-            return success_list_instagram
+                    message = 'Palautteen tallennus epäonnistui'
+                    success_list_instagram.append(False)
+                self.answer_to_instagram(
+                    instagram_api,
+                    ticket_url,
+                    media.id,
+                    message
+                )
+        else:
+            if success_list_instagram == []:
+                success_list_instagram.append(False)
         return success_list_instagram
-    def handle_tweets(
+
+    def handle_twitter(
         self,
         previous_tweet_id,
         return_count=100,
         search_string=settings.SEARCH_STRING
     ):
         # Queries maximum of 100 latest tweets containing string
-        twitter_api = self.authenticate_twitter()
+        twitter_api = self.initialize_twitter()
         all_tweets = twitter_api.search(
             search_string,
             rpp=return_count,
             since_id=previous_tweet_id
         )
+        success_list_twitter = []
+        pdb.set_trace()
         for tweet in all_tweets:
             ticket_url = ''
             timezone = pytz.timezone('Europe/Helsinki')
@@ -228,15 +266,29 @@ class Command(BaseCommand):
             )
             if created is False:
                 # Record already in db
+                success_list_twitter.append(False)
                 continue
             else:
                 feedback = self.parse_twitter_data(tweet)
-                if(self.create_ticket(tweet_db_data.source_type, feedback)):
-                    message = 'Kiitos! Seuraa etenemistä osoitteessa: '
+                if self.create_ticket(tweet_db_data.source_type, feedback):
+                    text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: ' % (
+                        tweet.user.screen_name
+                    )
                     ticket_url = 'seuraapalautettataalla.fi'
+                    success_list_twitter.append(True)
                 else:
-                    message = 'Palautteen tallennus epäonnistui'
-                # self.answer_to_tweet(ticket_url, message, tweet.id)
+                    text = 'Palautteen tallennus epäonnistui'
+                    success_list_twitter.append(False)
+                answer_successful = self.answer_to_tweet(
+                    twitter_api,
+                    ticket_url,
+                    text,
+                    tweet.id
+                )
+        else:
+            if success_list_twitter == []:
+                success_list_twitter.append(False)
+        return success_list_twitter
 
     def parse_name(self, name_string):
         name_list = []
@@ -320,4 +372,4 @@ class Command(BaseCommand):
         else:
             ticket_dict['media_url'] = None
         return ticket_dict
-# vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2 
+# vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
