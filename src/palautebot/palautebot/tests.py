@@ -132,14 +132,16 @@ class TestPalautebotTests(TestCase):
     ):
         self.assertEqual(self.palautebot_cmd.handle_instagram(None), [True])
 
-    @mock.patch('palautebot.management.commands.palautebot.Command')
-    @mock.patch('palautebot.management.commands.palautebot.Command.answer_to_tweet', side_effect=return_true)
-    def test_handle_twitter(self, mock_cmd, mock_answer_to_tweet):
-        twitter_api = mock_cmd.initialize_twitter.return_value
+    def mock_twitter_search(search_string, rpp=60, since_id=None):
+        twitter_response = ''
         with open('src/palautebot/palautebot/test_utilities/test_data_twitter.py', 'rb') as data:
             twitter_response = pickle.load(data)
-            print('##############', twitter_response)
-        twitter_api.search.return_value = twitter_response
+        return twitter_response
+
+    @mock.patch('palautebot.management.commands.palautebot.Command')
+    @mock.patch('palautebot.management.commands.palautebot.Command.answer_to_tweet', side_effect=return_true)
+    @mock.patch('palautebot.management.commands.palautebot.tweepy.API.search', side_effect=mock_twitter_search)
+    def test_handle_twitter(self, mock_cmd, mock_answer_to_tweet, mock_twitter_search):
         self.assertEqual(self.palautebot_cmd.handle_twitter(None), [True])
 
 # vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
