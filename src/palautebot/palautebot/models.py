@@ -11,13 +11,10 @@ LOG = logging.getLogger(__name__)
 
 class Feedback(models.Model):
     SOURCE_TYPE_TWITTER = 'twitter'
-    SOURCE_TYPE_INSTAGRAM = 'instagram'
-    SOURCE_TYPE_FACEBOOK = 'facebook'
+
 
     SOURCE_TYPE_CHOICES = (
         (SOURCE_TYPE_TWITTER, 'Twitter'),
-        (SOURCE_TYPE_INSTAGRAM, 'Instagram'),
-        (SOURCE_TYPE_FACEBOOK, 'Facebook'),
     )
 
     ticket_id = models.CharField(max_length=2048)
