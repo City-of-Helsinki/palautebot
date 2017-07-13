@@ -53,9 +53,18 @@ class Command(BaseCommand):
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
             data=feedback, headers=headers)
-        new_ticket = response_new_ticket.json()
-        print(new_ticket)
         url_to_feedback = ''
+        new_ticket = response_new_ticket.json()
+        for entry in new_ticket:
+            if 'code' in entry:
+                print(entry['code'])
+                return url_to_feedback
+            elif 'service_request_id' in entry:
+                break
+            else:
+                print('something wrong with api data')
+                print(entry)
+                return url_to_feedback
         try:
             new_ticket_id = new_ticket[0]['service_request_id']
             url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
