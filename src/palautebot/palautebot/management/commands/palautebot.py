@@ -1,32 +1,23 @@
 # -*- coding: utf-8 -*-
-import facebook
 import json
 import logging
 import pytz
 import requests
-# import short_url
 import time
 import tweepy
 
 from django.core.management.base import BaseCommand
 from django.db import IntegrityError
-from instagram.bind import InstagramAPIError
-from instagram.client import InstagramAPI
 from palautebot import settings
 from palautebot.models import Feedback
-from urllib import request, parse
-
-import pdb
 
 LOG = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
     help = 'Palautebot runner management command'
-
+# This is the main method
     def handle(self, *args, **options):
-        Feedback.objects.all().delete()
-
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
@@ -38,6 +29,7 @@ class Command(BaseCommand):
             previous_tweet_id = None
         self.handle_twitter(previous_tweet_id)
 
+# This function posts an answer to the user's twitter post
     def answer_to_tweet(self, twitter_api, msg, tweet_id):
         tweet_answer = []
         try:
@@ -53,21 +45,19 @@ class Command(BaseCommand):
             tweet_answered = False
         return tweet_answered
 
+# This function sends the feedback to the Helsinki feedback API 
     def create_ticket(self, source_type, feedback):
         feedback['api_key'] = settings.HELSINKI_API_KEY
         feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
-
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL, data=feedback, headers=headers)
-        print('DATA: ', response_new_ticket.text)
+        response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
+            data=feedback, headers=headers)
         new_ticket = response_new_ticket.json()
         new_ticket_id = new_ticket[0]['service_request_id']
-        print('ID: ', new_ticket_id)
         url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
-        print(feedback)
-        print('URL: ',url_to_feedback)
         return url_to_feedback
 
+# This function authenticates BOT and initializes twitter_api object
     def initialize_twitter(self):
         twitter_auth = tweepy.OAuthHandler(
             settings.TWITTER_CONSUMER_KEY,
@@ -80,6 +70,12 @@ class Command(BaseCommand):
         twitter_api = tweepy.API(twitter_auth)
         return twitter_api
 
+# This method:
+#    1. Fetches user's feedback from Twitter
+#    2. Saves id, type, timestamp and ticket_id to the heroku postgres db
+#    3. Calls parse_tweet and gets formatted tweet data for feedback api
+#    4. Calls create_ticket and gets url for user
+#    5. Calls answer_to_tweet that and gets True or False
     def handle_twitter(
         self,
         previous_tweet_id,
@@ -127,14 +123,15 @@ class Command(BaseCommand):
                     tweet.id
                 )
                 if answer_successful == True:
-                    print('ANSWER SUCCESFULL')
+                    print('Tweet %s answered' % (tweet.id)) 
                 else:
-                    print('ANSWER FAILED')
+                    print('something went wrong with answering the tweet')
         else:
             if success_list_twitter == []:
                 success_list_twitter.append(False)
         return success_list_twitter
 
+# This function parses the given name
     def parse_name(self, name_string):
         name_list = []
         if ' ' in name_string:
@@ -144,6 +141,7 @@ class Command(BaseCommand):
             name_list.append(None)
         return name_list
 
+# This function creates feedback dictionary
     def parse_twitter_data(self, tweet):
         url = 'https://twitter.com/'
         url = '%s%s/%s' % (url, tweet.user.screen_name, tweet.id)
