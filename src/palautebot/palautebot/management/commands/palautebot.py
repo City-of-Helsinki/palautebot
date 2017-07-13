@@ -18,6 +18,7 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 # This is the main method
     def handle(self, *args, **options):
+        Feedback.objects.all().delete()
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
@@ -27,7 +28,9 @@ class Command(BaseCommand):
             previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist as e:
             previous_tweet_id = None
-        self.handle_twitter(previous_tweet_id)
+
+        
+        # self.handle_twitter(previous_tweet_id)
 
 # This function posts an answer to the user's twitter post
     def answer_to_tweet(self, twitter_api, msg, tweet_id):
@@ -53,7 +56,10 @@ class Command(BaseCommand):
         response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
             data=feedback, headers=headers)
         new_ticket = response_new_ticket.json()
-        new_ticket_id = new_ticket[0]['service_request_id']
+        try:
+            new_ticket_id = new_ticket[0]['service_request_id']
+        except KeyError as e:
+            print('New data doesn\'t contain service_request_id' % (new_ticket))
         url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
         return url_to_feedback
 
