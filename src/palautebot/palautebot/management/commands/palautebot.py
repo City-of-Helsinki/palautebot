@@ -28,9 +28,7 @@ class Command(BaseCommand):
             previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist as e:
             previous_tweet_id = None
-
-
-        # self.handle_twitter(previous_tweet_id)
+        self.handle_twitter(previous_tweet_id)
 
 # This function posts an answer to the user's twitter post
     def answer_to_tweet(self, twitter_api, msg, tweet_id):
