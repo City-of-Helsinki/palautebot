@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import facebook
+import json
 import logging
 import pytz
 import requests
+# import short_url
 import time
 import tweepy
 
@@ -12,6 +14,7 @@ from instagram.bind import InstagramAPIError
 from instagram.client import InstagramAPI
 from palautebot import settings
 from palautebot.models import Feedback
+from urllib import request, parse
 
 import pdb
 
@@ -22,41 +25,48 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 
     def handle(self, *args, **options):
-        # Feedback.objects.all().delete()
+        Feedback.objects.all().delete()
 
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
-            latest_facebook = Feedback.objects.filter(
-                source_type='facebook'
+            latest_twitter = Feedback.objects.filter(
+                source_type='twitter'
             ).latest('source_created_at')
-            previous_facebook_post_time = latest_facebook.source_created_at
+            previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist as e:
-            previous_facebook_post_time = None
+            previous_tweet_id = None
         self.handle_twitter(previous_tweet_id)
 
-    def answer_to_tweet(self, twitter_api, url, msg, tweet_id):
-        msg = '%s %s' % (msg, url)
+    def answer_to_tweet(self, twitter_api, msg, tweet_id):
         tweet_answer = []
-        # try:
-        #     tweet_answer = twitter_api.update_status(
-        #         msg,
-        #         in_reply_to_status_id=tweet_id
-        #     )
-        # except tweepy.error.TweepError as e:
-        #     tweet_answered = False
-        # if tweet_answer != []:
-        #     tweet_answered = True
-        # else:
-        #     tweet_answered = False
-        # return tweet_answered
-        return True
+        try:
+            tweet_answer = twitter_api.update_status(
+                msg,
+                in_reply_to_status_id=tweet_id
+            )
+        except tweepy.error.TweepError as e:
+            tweet_answered = False
+        if tweet_answer != []:
+            tweet_answered = True
+        else:
+            tweet_answered = False
+        return tweet_answered
 
     def create_ticket(self, source_type, feedback):
         feedback['api_key'] = settings.HELSINKI_API_KEY
         feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
+
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL, data=feedback, headers=headers)
+        print('DATA: ', response_new_ticket.text)
+        new_ticket = response_new_ticket.json()
+        new_ticket_id = new_ticket[0]['service_request_id']
+        print('ID: ', new_ticket_id)
+        url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
         print(feedback)
-        return True
+        print('URL: ',url_to_feedback)
+        return url_to_feedback
 
     def initialize_twitter(self):
         twitter_auth = tweepy.OAuthHandler(
@@ -102,21 +112,24 @@ class Command(BaseCommand):
                 continue
             else:
                 feedback = self.parse_twitter_data(tweet)
-                if self.create_ticket(tweet_db_data.source_type, feedback):
-                    text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: ' % (
-                        tweet.user.screen_name
-                    )
-                    ticket_url = 'seuraapalautettataalla.fi'
-                    success_list_twitter.append(True)
-                else:
+                ticket_url = self.create_ticket(tweet_db_data.source_type, feedback)
+                if ticket_url == '':
                     text = 'Palautteen tallennus epäonnistui'
                     success_list_twitter.append(False)
+                else:
+                    text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (
+                        tweet.user.screen_name, ticket_url
+                    )
+                    success_list_twitter.append(True)
                 answer_successful = self.answer_to_tweet(
                     twitter_api,
-                    ticket_url,
                     text,
                     tweet.id
                 )
+                if answer_successful == True:
+                    print('ANSWER SUCCESFULL')
+                else:
+                    print('ANSWER FAILED')
         else:
             if success_list_twitter == []:
                 success_list_twitter.append(False)

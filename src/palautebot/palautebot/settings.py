@@ -4,6 +4,8 @@ from django.conf import settings
 
 HELSINKI_API_KEY = getattr(settings, 'HELSINKI_API_KEY', None)
 HELSINKI_API_SERVICE_CODE = getattr(settings, 'HELSINKI_API_SERVICE_CODE', None)
+HELSINKI_POST_API_URL = getattr(settings, 'HELSINKI_POST_API_URL', None)
+HELSINKI_GET_API_URL = getattr(settings, 'HELSINKI_GET_API_URL')
 
 SEARCH_STRING = getattr(settings, 'SEARCH_STRING', None)
 

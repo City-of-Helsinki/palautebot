@@ -13,6 +13,7 @@ TWITTER_ACCESS_TOKEN_SECRET = os.environ.get('TWITTER_ACCESS_TOKEN_SECRET', None
 
 HELSINKI_API_KEY = os.environ.get('HELSINKI_API_KEY', None)
 HELSINKI_API_SERVICE_CODE = os.environ.get('HELSINKI_API_SERVICE_CODE', None)
+HELSINKI_POST_API_URL = os.environ.get('HELSINKI_POST_API_URL', None)
 SEARCH_STRING= os.environ.get('SEARCH_STRING', None)
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
