@@ -29,7 +29,7 @@ class Command(BaseCommand):
         except Feedback.DoesNotExist as e:
             previous_tweet_id = None
 
-        
+
         # self.handle_twitter(previous_tweet_id)
 
 # This function posts an answer to the user's twitter post
@@ -56,11 +56,12 @@ class Command(BaseCommand):
         response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
             data=feedback, headers=headers)
         new_ticket = response_new_ticket.json()
+        url_to_feedback = ''
         try:
             new_ticket_id = new_ticket[0]['service_request_id']
+            url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
         except KeyError as e:
             print('New data doesn\'t contain service_request_id' % (new_ticket))
-        url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
         return url_to_feedback
 
 # This function authenticates BOT and initializes twitter_api object
