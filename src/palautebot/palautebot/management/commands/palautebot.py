@@ -57,7 +57,8 @@ class Command(BaseCommand):
         new_ticket = response_new_ticket.json()
         for entry in new_ticket:
             if 'code' in entry:
-                print(entry['code'])
+                print('ERROR: ', entry['code'])
+                print('info: ', entry['description'])
                 return url_to_feedback
             elif 'service_request_id' in entry:
                 break
