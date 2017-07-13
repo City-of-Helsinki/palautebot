@@ -59,7 +59,7 @@ class Command(BaseCommand):
             new_ticket_id = new_ticket[0]['service_request_id']
             url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
         except KeyError as e:
-            print('New data doesn\'t contain service_request_id' % (new_ticket))
+            print('New data doesn\'t contain service_request_id %s' % (new_ticket))
         return url_to_feedback
 
 # This function authenticates BOT and initializes twitter_api object
