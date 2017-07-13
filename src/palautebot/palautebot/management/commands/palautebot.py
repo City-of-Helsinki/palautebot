@@ -54,6 +54,7 @@ class Command(BaseCommand):
         response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
             data=feedback, headers=headers)
         new_ticket = response_new_ticket.json()
+        print(new_ticket)
         url_to_feedback = ''
         try:
             new_ticket_id = new_ticket[0]['service_request_id']
