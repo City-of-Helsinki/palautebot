@@ -11,6 +11,8 @@ from django.db import IntegrityError
 from palautebot import settings
 from palautebot.models import Feedback
 
+import pdb
+
 LOG = logging.getLogger(__name__)
 
 
@@ -54,6 +56,7 @@ class Command(BaseCommand):
         response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
             data=feedback, headers=headers)
         url_to_feedback = ''
+        pdb.set_trace()
         new_ticket = response_new_ticket.json()
         for entry in new_ticket:
             if 'code' in entry:
