@@ -18,7 +18,6 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 # This is the main method
     def handle(self, *args, **options):
-        Feedback.objects.all().delete()
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
