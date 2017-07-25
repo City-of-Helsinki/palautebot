@@ -18,6 +18,7 @@ class Command(BaseCommand):
     help = 'Palautebot runner management command'
 # This is the main method
     def handle(self, *args, **options):
+        Feedback.objects.all().delete()
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
@@ -159,7 +160,7 @@ class Command(BaseCommand):
 # This function creates feedback dictionary
     def parse_twitter_data(self, tweet):
         url = 'https://twitter.com/'
-        url = '%s%s/%s' % (url, tweet.user.screen_name, tweet.id)
+        url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
         description_header = 'Feedback via palaute-bot from user '
         ticket_dict = {}
         name = self.parse_name(tweet.user.name)
