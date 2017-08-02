@@ -123,9 +123,11 @@ class Command(BaseCommand):
                 continue
             else:
                 feedback = self.parse_twitter_data(tweet)
-                ticket_url = self.create_ticket(tweet_db_data.source_type, feedback)
+                ticket_url = self.create_ticket(
+                    tweet_db_data.source_type, feedback)
                 if ticket_url == '':
-                    text = 'Palautteen tallennus epäonnistui'
+                    text = 'Pahoittettelut @%s, Palautteen tallennus epäonnistui' % (
+                        tweet.user.screen_name)
                     success_list_twitter.append(False)
                 else:
                     text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (
