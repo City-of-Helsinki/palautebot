@@ -54,6 +54,7 @@ class Command(BaseCommand):
             data=feedback, headers=headers)
         url_to_feedback = ''
         new_ticket = response_new_ticket.json()
+        print(new_ticket)
         for entry in new_ticket:
             if 'code' in entry:
                 print('ERROR: ', entry['code'])
@@ -126,7 +127,7 @@ class Command(BaseCommand):
                 ticket_url = self.create_ticket(
                     tweet_db_data.source_type, feedback)
                 if ticket_url == '':
-                    text = 'Pahoittettelut @%s, Palautteen tallennus epäonnistui' % (
+                    text = 'Pahoittettelut @%s, palautteen tallennus epäonnistui' % (
                         tweet.user.screen_name)
                     success_list_twitter.append(False)
                 else:
