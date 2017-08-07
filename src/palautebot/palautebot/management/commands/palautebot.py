@@ -127,7 +127,7 @@ class Command(BaseCommand):
                 ticket_url = self.create_ticket(
                     tweet_db_data.source_type, feedback)
                 if ticket_url == '':
-                    text = 'Pahoittettelut @%s, palautteen tallennus epäonnistui' % (
+                    text = 'Pahoittettelut @%s! Palautteen tallennus epäonnistui' % (
                         tweet.user.screen_name)
                     success_list_twitter.append(False)
                 else:
@@ -163,7 +163,7 @@ class Command(BaseCommand):
     def parse_twitter_data(self, tweet):
         url = 'https://twitter.com/'
         url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
-        description_header = 'Feedback via palaute-bot from user '
+        description_header = 'Palautetta Twitteristä käyttäjältä '
         ticket_dict = {}
         name = self.parse_name(tweet.user.name)
         ticket_dict['first_name'] = name[0]
