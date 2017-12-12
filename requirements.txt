@@ -1,5 +1,6 @@
 contextlib2==0.5.5
 dj-database-url==0.4.2
+django-environ==0.4.4
 django-sslify==0.2.7
 Django==1.11
 gunicorn==19.7.1
