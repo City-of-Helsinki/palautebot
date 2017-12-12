@@ -106,9 +106,9 @@ class Command(BaseCommand):
             since_id=previous_tweet_id
         )
         success_list_twitter = []
+        timezone = pytz.timezone('Europe/Helsinki')
         for tweet in all_tweets:
             ticket_url = ''
-            timezone = pytz.timezone('Europe/Helsinki')
             time = timezone.localize(tweet.created_at)
             tweet_db_data, created = Feedback.objects.get_or_create(
                 source_id=tweet.id,

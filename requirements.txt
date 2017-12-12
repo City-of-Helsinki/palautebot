@@ -16,5 +16,3 @@ six==1.10.0
 tweepy==3.5.0
 urllib3==1.13.1
 whitenoise==3.3.0
-
--e ./src/palautebot

@@ -7,8 +7,8 @@
   - Facebook page for palaute-bot
 
 ## Assebly for testing
-  - Install dependencies `python36 pip install -r requirements.txt`
-  - Create Database table `python36 manage.py migrate --settings=project.local_settings.py`
+  - Install dependencies `python pip install -r requirements.txt`
+  - Create Database table `python manage.py migrate`
   - Create a file to projects folder called local_settings.py
   - To make it work instantly you can use following names for the keys
     - `TWITTER_CONSUMER_KEY = ''
@@ -24,7 +24,7 @@ FACEBOOK_PAGE_ID= ''
 FACEBOOK_PAGE_ACCESS_TOKEN = ''
 HELSINKI_API_KEY = ''
 SEARCH_STRING = '#ExamleTestHashtag'`
-  - Run the script `python36 manage.py palautebot --settings=project.local_settings.py`
+  - Run the script `python manage.py palautebot`
 
 ## Getting the keys
   - **Twitter**

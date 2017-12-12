@@ -7,9 +7,6 @@ import os
 import sys
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
-sys.path[0:0] = [
-    './src/palautebot'
-]
 
 from django.core.wsgi import get_wsgi_application
 from whitenoise.django import DjangoWhiteNoise
