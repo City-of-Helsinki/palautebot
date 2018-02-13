@@ -1,0 +1,27 @@
+sudo: false
+dist: trusty
+
+language: python
+python:
+  - '3.4'
+  - '3.5'
+  - '3.6'
+
+cache: pip
+
+addons:
+  postgresql: 9.6
+
+install: 'pip install codecov -r requirements.txt -r requirements-dev.txt'
+
+before_script:
+  - psql -c 'create database palautebot;' -U postgres
+
+script:
+  - flake8
+  - pytest -ra -vvv --cov
+
+after_success: codecov
+
+env:
+  - SECRET_KEY=topsecret123 DATABASE_URL="postgres://postgres:@localhost/palautebot"
