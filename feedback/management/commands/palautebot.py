@@ -1,28 +1,25 @@
-# -*- coding: utf-8 -*-
-import json
 import logging
+
 import pytz
 import requests
-import time
 import tweepy
-
+from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import IntegrityError
-from palautebot import settings
-from palautebot.models import Feedback
+from feedback.models import Feedback
 
 LOG = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
     help = 'Palautebot runner management command'
+
 # This is the main method
     def handle(self, *args, **options):
         for result in Feedback.objects.all():
             print('%s is in the db' % (result.ticket_id))
         try:
             latest_twitter = Feedback.objects.filter(
-                source_type='twitter'
+                source='twitter'
             ).latest('source_created_at')
             previous_tweet_id = latest_twitter.source_id
         except Feedback.DoesNotExist as e:
@@ -45,13 +42,13 @@ class Command(BaseCommand):
             tweet_answered = False
         return tweet_answered
 
-# This function sends the feedback to the Helsinki feedback API 
+# This function sends the feedback to the Helsinki feedback API
     def create_ticket(self, source_type, feedback):
-        feedback['api_key'] = settings.HELSINKI_API_KEY
-        feedback['service_code'] = settings.HELSINKI_API_SERVICE_CODE
+        feedback['api_key'] = settings.OPEN311_API_KEY
+        feedback['service_code'] = settings.OPEN311_API_SERVICE_CODE
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        response_new_ticket = requests.post(settings.HELSINKI_POST_API_URL,
-            data=feedback, headers=headers)
+        response_new_ticket = requests.post(
+            settings.OPEN311_POST_API_URL, data=feedback, headers=headers)
         url_to_feedback = ''
         new_ticket = response_new_ticket.json()
         print(new_ticket)
@@ -68,7 +65,7 @@ class Command(BaseCommand):
                 return url_to_feedback
         try:
             new_ticket_id = new_ticket[0]['service_request_id']
-            url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)
+            url_to_feedback = 'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s' % (new_ticket_id)  # noqa
         except KeyError as e:
             print('New data doesn\'t contain service_request_id %s' % (new_ticket))
         return url_to_feedback
@@ -112,7 +109,7 @@ class Command(BaseCommand):
             time = timezone.localize(tweet.created_at)
             tweet_db_data, created = Feedback.objects.get_or_create(
                 source_id=tweet.id,
-                source_type='twitter',
+                source='twitter',
                 defaults={
                     'ticket_id': 'twitter-ticket-%s' % (tweet.id),
                     'source_created_at': time
@@ -125,7 +122,7 @@ class Command(BaseCommand):
             else:
                 feedback = self.parse_twitter_data(tweet)
                 ticket_url = self.create_ticket(
-                    tweet_db_data.source_type, feedback)
+                    tweet_db_data.source, feedback)
                 if ticket_url == '':
                     text = 'Pahoittettelut @%s! Palautteen tallennus epäonnistui' % (
                         tweet.user.screen_name)
@@ -140,8 +137,8 @@ class Command(BaseCommand):
                     text,
                     tweet.id
                 )
-                if answer_successful == True:
-                    print('Tweet %s answered' % (tweet.id)) 
+                if answer_successful is True:
+                    print('Tweet %s answered' % (tweet.id))
                 else:
                     print('something went wrong with answering the tweet')
         else:
@@ -187,5 +184,3 @@ class Command(BaseCommand):
         else:
             ticket_dict['media_url'] = None
         return ticket_dict
-
-# vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2

@@ -1,0 +1,6 @@
+Django
+psycopg2
+django-environ
+raven
+requests
+tweepy
