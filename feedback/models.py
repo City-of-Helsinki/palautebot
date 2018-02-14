@@ -13,7 +13,7 @@ class Feedback(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     source = models.CharField(max_length=2048, choices=SOURCE_CHOICES)
     source_id = models.CharField(max_length=2048)
-    source_created_at = models.DateTimeField(null=True, blank=True)
+    source_created_at = models.DateTimeField(db_index=True)
     ticket_id = models.CharField(max_length=2048, blank=True, db_index=True)
 
     class Meta:

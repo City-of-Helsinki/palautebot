@@ -1,99 +1,92 @@
+import logging
+
 import pytz
 import tweepy
 from django.conf import settings
 
-from .feedback_requests import create_ticket
 from .models import Feedback
+from .open311 import Open311Exception, create_ticket
+from .utils import check_required_settings
 
-# max num of tweets to fetch
-RETURN_COUNT = 100
+NUM_OF_TWEETS_TO_FETCH = 100
+
+REQUIRED_SETTINGS = (
+    'TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET',
+    'SEARCH_STRING',
+)
+
+logger = logging.getLogger(__name__)
 
 
 # This method:
 #    1. Fetches user's feedback from Twitter
-#    2. Saves id, type, timestamp and ticket_id to the db
+#    2. Saves id, type and timestamp to the db
 #    3. Calls parse_tweet and gets formatted tweet data for feedback api
-#    4. Calls create_ticket and gets url for user
-#    5. Calls answer_to_tweet that and gets True or False
+#    4. Calls create_ticket and gets ticket id for feedback object and url for user
+#    5. Tries to answer the tweet with text based on whether create_ticket was successful or not
 def handle_twitter():
+    twitter_api = initialize_twitter()
+
     try:
-        latest_twitter = Feedback.objects.filter(
-            source='twitter'
-        ).latest('source_created_at')
-        previous_tweet_id = latest_twitter.source_id
-    except Feedback.DoesNotExist as e:
+        previous_tweet_id = Feedback.objects.filter(
+            source=Feedback.SOURCE_TWITTER
+        ).latest(
+            'source_created_at'
+        ).source_id
+    except Feedback.DoesNotExist:
         previous_tweet_id = None
 
+    logger.debug('Fetching tweets, previous_tweet_id {}'.format(previous_tweet_id))
+
     # Queries maximum of RETURN_COUNT latest tweets containing string
-    twitter_api = initialize_twitter()
     all_tweets = twitter_api.search(
         settings.SEARCH_STRING,
-        rpp=RETURN_COUNT,
+        rpp=NUM_OF_TWEETS_TO_FETCH,
         since_id=previous_tweet_id,
     )
-    success_list_twitter = []
+    logger.debug('Got {} tweet(s)'.format(len(all_tweets)))
+
     timezone = pytz.timezone('Europe/Helsinki')
+
     for tweet in all_tweets:
         time = timezone.localize(tweet.created_at)
-        tweet_db_data, created = Feedback.objects.get_or_create(
+        feedback, created = Feedback.objects.get_or_create(
             source_id=tweet.id,
-            source='twitter',
+            source=Feedback.SOURCE_TWITTER,
             defaults={
-                'ticket_id': 'twitter-ticket-%s' % (tweet.id),
                 'source_created_at': time
             }
         )
-        if created is False:
-            # Record already in db
-            success_list_twitter.append(False)
+
+        if not created:
             continue
+
+        logger.debug('New twitter feedback from @{}: {}'.format(tweet.user.screen_name, tweet.text))
+        new_feedback_data = parse_twitter_data(tweet)
+
+        # post a ticket to open311
+        try:
+            ticket_data = create_ticket(new_feedback_data)
+        except Open311Exception as e:
+            logger.error('Could not create a ticket, exception: {}'.format(e))
+            text = 'Pahoittelut @%s! Palautteen tallennus epäonnistui' % tweet.user.screen_name
         else:
-            feedback = parse_twitter_data(tweet)
-            ticket_url = create_ticket(
-                tweet_db_data.source, feedback)
-            if ticket_url == '':
-                text = 'Pahoittettelut @%s! Palautteen tallennus epäonnistui' % (
-                    tweet.user.screen_name)
-                success_list_twitter.append(False)
-            else:
-                text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (
-                    tweet.user.screen_name, ticket_url
-                )
-                success_list_twitter.append(True)
-            answer_successful = answer_to_tweet(
-                twitter_api,
-                text,
-                tweet.id
-            )
-            if answer_successful is True:
-                print('Tweet %s answered' % (tweet.id))
-            else:
-                print('something went wrong with answering the tweet')
-    else:
-        if success_list_twitter == []:
-            success_list_twitter.append(False)
-    return success_list_twitter
+            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (tweet.user.screen_name, ticket_data['ticket_url'])
+            feedback.ticket_id = ticket_data['ticket_id']
+            feedback.save()
 
-
-# This function posts an answer to the user's twitter post
-def answer_to_tweet(twitter_api, msg, tweet_id):
-    tweet_answer = []
-    try:
-        tweet_answer = twitter_api.update_status(
-            msg,
-            in_reply_to_status_id=tweet_id
-        )
-    except tweepy.error.TweepError as e:
-        tweet_answered = False
-    if tweet_answer != []:
-        tweet_answered = True
-    else:
-        tweet_answered = False
-    return tweet_answered
+        # answer to the tweet
+        try:
+            logger.debug('Sending answer {} to user @{}'.format(text, tweet.user.screen_name))
+            twitter_api.update_status(text, in_reply_to_status_id=tweet.id)
+        except tweepy.error.TweepError as e:
+            logger.error('Something went wrong with answering the tweet, exception: {}'.format(e))
 
 
 # This function authenticates BOT and initializes twitter_api object
 def initialize_twitter():
+    check_required_settings(REQUIRED_SETTINGS)
+
     twitter_auth = tweepy.OAuthHandler(
         settings.TWITTER_CONSUMER_KEY,
         settings.TWITTER_CONSUMER_SECRET
@@ -106,15 +99,8 @@ def initialize_twitter():
     return twitter_api
 
 
-# This function parses the given name
 def parse_name(name_string):
-    name_list = []
-    if ' ' in name_string:
-        name_list = name_string.split(' ')
-    else:
-        name_list.append(name_string)
-        name_list.append(None)
-    return name_list
+    return name_string.split(' ') if ' ' in name_string else [name_string, None]
 
 
 # This function creates feedback dictionary
