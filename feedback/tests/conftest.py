@@ -20,6 +20,9 @@ def override_settings(settings):
             value = 'http://{}'.format(value)
         setattr(settings, setting_name, value)
 
+    settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 5
+    settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24
+
 
 @pytest.fixture(scope='session')
 def tweepy_search_result():

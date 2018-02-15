@@ -124,6 +124,11 @@ TWITTER_CONSUMER_SECRET = env('TWITTER_CONSUMER_SECRET', default='')
 TWITTER_ACCESS_TOKEN = env('TWITTER_ACCESS_TOKEN', default='')
 TWITTER_ACCESS_TOKEN_SECRET = env('TWITTER_ACCESS_TOKEN_SECRET', default='')
 
+# default max rate of tweets per user is 5 per day (60*24 minutes).
+# set either of the values to None to turn off rate limiting
+TWITTER_USER_RATE_LIMIT_AMOUNT = env.int('TWITTER_USER_RATE_LIMIT_AMOUNT', default=5)
+TWITTER_USER_RATE_LIMIT_PERIOD = env.int('TWITTER_USER_RATE_LIMIT_PERIOD', default=60*24)
+
 OPEN311_API_KEY = env('OPEN311_API_KEY', default='')
 OPEN311_API_SERVICE_CODE = env('OPEN311_API_SERVICE_CODE', default='')
 OPEN311_POST_API_URL = env('OPEN311_POST_API_URL', default='')

@@ -9,6 +9,8 @@ from feedback.models import Feedback
 from feedback.open311 import Open311Exception
 from feedback.twitter import handle_twitter, initialize_twitter, parse_twitter_data
 
+from .utils import SubstringMatcher
+
 
 @pytest.mark.parametrize('required_setting', (
     'TWITTER_CONSUMER_KEY',
@@ -50,6 +52,7 @@ def test_handle_twitter_success(update_status, create_ticket, tweepy_search_resu
         source_id='777',
         source_created_at=now(),
         ticket_id='abc123',
+        user_identifier='ViljamiTesti',
     )
 
     with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search:
@@ -63,6 +66,7 @@ def test_handle_twitter_success(update_status, create_ticket, tweepy_search_resu
         )
         new_feedback = Feedback.objects.latest('id')
         assert new_feedback.ticket_id == '7'
+        assert new_feedback.user_identifier == 'ViljamiTesti'
 
 
 @mock.patch(
@@ -92,4 +96,28 @@ def test_handle_twitter_create_ticket_failure(update_status, create_ticket, twee
             'Pahoittelut @ViljamiTesti! Palautteen tallennus epäonnistui',
             in_reply_to_status_id=874885713845735424
         )
+        assert Feedback.objects.count() == 1
+
+
+@mock.patch('feedback.twitter.create_ticket')
+@mock.patch('tweepy.API.update_status')
+@mock.patch('feedback.twitter.logger.warning')
+@pytest.mark.django_db
+def test_handle_twitter_rate_limit_exceeded(warning, update_status, create_ticket, tweepy_search_result, settings):
+    settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 1
+
+    Feedback.objects.create(
+        source=Feedback.SOURCE_TWITTER,
+        source_id='777',
+        source_created_at=now(),
+        ticket_id='abc123',
+        user_identifier='ViljamiTesti',
+    )
+
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result):
+        handle_twitter()
+
+        warning.assert_called_with(SubstringMatcher('User exceeded feedback post rate limit'))
+        update_status.assert_not_called()
+        create_ticket.assert_not_called()
         assert Feedback.objects.count() == 1
