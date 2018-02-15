@@ -2,7 +2,10 @@ import logging
 
 import pytz
 import tweepy
+from datetime import timedelta
+
 from django.conf import settings
+from django.utils.timezone import now
 
 from .models import Feedback
 from .open311 import Open311Exception, create_ticket
@@ -50,18 +53,31 @@ def handle_twitter():
 
     for tweet in all_tweets:
         time = timezone.localize(tweet.created_at)
+        username = tweet.user.screen_name
+
+        if Feedback.objects.filter(source_id=tweet.id, source=Feedback.SOURCE_TWITTER).exists():
+            logger.debug('Got already existing twitter feedback from @{}: {}'.format(username, tweet.text))
+            continue
+
+        if not check_rate_limit(username):
+            logger.warning(
+                'User exceeded feedback post rate limit, user: @{} feedback: {}'.format(username, tweet.text)
+            )
+            continue
+
         feedback, created = Feedback.objects.get_or_create(
             source_id=tweet.id,
             source=Feedback.SOURCE_TWITTER,
             defaults={
-                'source_created_at': time
+                'source_created_at': time,
+                'user_identifier': username,
             }
         )
 
         if not created:
             continue
 
-        logger.debug('New twitter feedback from @{}: {}'.format(tweet.user.screen_name, tweet.text))
+        logger.debug('New twitter feedback from @{}: {}'.format(username, tweet.text))
         new_feedback_data = parse_twitter_data(tweet)
 
         # post a ticket to open311
@@ -131,3 +147,21 @@ def parse_twitter_data(tweet):
     else:
         ticket_dict['media_url'] = None
     return ticket_dict
+
+
+def check_rate_limit(username):
+    if settings.TWITTER_USER_RATE_LIMIT_PERIOD is None or settings.TWITTER_USER_RATE_LIMIT_AMOUNT is None:
+        return True
+
+    rate_limit_period_start = now() - timedelta(minutes=settings.TWITTER_USER_RATE_LIMIT_PERIOD)
+
+    feedback_count = Feedback.objects.filter(
+        source=Feedback.SOURCE_TWITTER,
+        user_identifier=username,
+        source_created_at__gte=rate_limit_period_start,
+    ).exclude(user_identifier='').count()
+
+    if feedback_count >= settings.TWITTER_USER_RATE_LIMIT_AMOUNT:
+        return False
+
+    return True
