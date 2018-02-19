@@ -168,7 +168,7 @@ if 'SECRET_KEY' not in locals():
         except IOError:
             Exception('Please create a %s file with random characters to generate your secret key!' % secret_file)
 
-if DEBUG:
+if DEBUG and 'LOGGING' not in locals():
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
