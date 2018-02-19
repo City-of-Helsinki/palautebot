@@ -132,6 +132,10 @@ TWITTER_USER_RATE_LIMIT_PERIOD = env.int('TWITTER_USER_RATE_LIMIT_PERIOD', defau
 OPEN311_API_KEY = env('OPEN311_API_KEY', default='')
 OPEN311_API_SERVICE_CODE = env('OPEN311_API_SERVICE_CODE', default='')
 OPEN311_POST_API_URL = env('OPEN311_POST_API_URL', default='')
+OPEN311_FEEDBACK_URL = env.str(
+    'OPEN311_FEEDBACK_URL',
+    default='https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid={}'
+)
 
 SEARCH_STRING = env('SEARCH_STRING', default='')
 
