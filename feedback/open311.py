@@ -42,10 +42,6 @@ def create_ticket(feedback):
             raise Open311Exception('Something wrong with api data, entry: {}'.format(entry))
     try:
         new_ticket_id = new_ticket[0]['service_request_id']
-        url_to_feedback = (
-            'https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid=%s'
-            % new_ticket_id
-        )
     except KeyError:
         raise Open311Exception("New data doesn't contain service_request_id, ticket {}".format(new_ticket))
-    return {'ticket_id': new_ticket_id, 'ticket_url': url_to_feedback}
+    return new_ticket_id

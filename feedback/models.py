@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import pgettext_lazy
 
@@ -24,3 +25,6 @@ class Feedback(models.Model):
 
     def __str__(self):
         return '{} {}'.format(self.source, self.source_id)
+
+    def get_url(self):
+        return settings.OPEN311_FEEDBACK_URL.format(self.ticket_id) if self.ticket_id else None

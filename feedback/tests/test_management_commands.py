@@ -3,7 +3,7 @@ from unittest import mock
 from django.core.management import call_command
 
 
-@mock.patch('feedback.twitter.handle_twitter')
-def test_palautebot_management_command(handle_twitter):
+@mock.patch('feedback.twitter.TwitterHandler.run')
+def test_palautebot_management_command(run):
     call_command('palautebot')
-    handle_twitter.assert_called_with()
+    run.assert_called_with()

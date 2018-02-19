@@ -12,13 +12,13 @@ def override_settings(settings):
         'TWITTER_ACCESS_TOKEN_SECRET',
         'OPEN311_API_KEY',
         'OPEN311_API_SERVICE_CODE',
-        'OPEN311_POST_API_URL',
         'SEARCH_STRING',
     ):
         value = 'test_{}'.format(setting_name)
-        if setting_name == 'OPEN311_POST_API_URL':
-            value = 'http://{}'.format(value)
         setattr(settings, setting_name, value)
+
+    settings.OPEN311_POST_API_URL = 'http://test_OPEN311_POST_API_URL'
+    settings.OPEN311_FEEDBACK_URL = 'http://test_OPEN311_FEEDBACK_URL?fid={}'
 
     settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 5
     settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24
