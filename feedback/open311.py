@@ -29,7 +29,10 @@ def create_ticket(feedback):
     feedback['api_key'] = settings.OPEN311_API_KEY
     feedback['service_code'] = settings.OPEN311_API_SERVICE_CODE
 
-    new_ticket = post_to_api(feedback)
+    try:
+        new_ticket = post_to_api(feedback)
+    except requests.RequestException as e:
+        raise Open311Exception(e)
 
     for entry in new_ticket:
         if 'code' in entry:
