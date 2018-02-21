@@ -5,7 +5,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.timezone import now
 from tweepy import API
 
-from feedback.models import Feedback
+from feedback.models import Feedback, Tweet
 from feedback.open311 import Open311Exception
 from feedback.tests.utils import SubstringMatcher
 from feedback.twitter import TwitterHandler
@@ -39,17 +39,12 @@ def test_parse_feedback(tweepy_search_result, expected_parsed_data):
     assert parsed_data == expected_parsed_data
 
 
-@mock.patch('feedback.twitter.create_ticket', return_value=7)
+@mock.patch('feedback.twitter.create_ticket', return_value='7')
 @mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
 def test_handle_twitter_success(update_status, create_ticket, tweepy_search_result, expected_parsed_data):
-    Feedback.objects.create(
-        source=Feedback.SOURCE_TWITTER,
-        source_id='777',
-        source_created_at=now(),
-        ticket_id='abc123',
-        user_identifier='ViljamiTesti',
-    )
+    feedback = Feedback.objects.create(ticket_id='abc123')
+    Tweet.objects.create(source_id='777', source_created_at=now(), user_identifier='fooman', feedback=feedback)
 
     with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search:
         twitter_handler = TwitterHandler()
@@ -61,9 +56,13 @@ def test_handle_twitter_success(update_status, create_ticket, tweepy_search_resu
             'Kiitos @ViljamiTesti! Seuraa etenemistä osoitteessa: http://test_OPEN311_FEEDBACK_URL?fid=7',
             in_reply_to_status_id=874885713845735424
         )
+
         new_feedback = Feedback.objects.latest('id')
         assert new_feedback.ticket_id == '7'
-        assert new_feedback.user_identifier == 'ViljamiTesti'
+
+        new_tweet = Tweet.objects.latest('id')
+        assert new_tweet.user_identifier == 'ViljamiTesti'
+        assert new_tweet.feedback == new_feedback
 
 
 @mock.patch('feedback.twitter.create_ticket', return_value='7')
@@ -77,6 +76,7 @@ def test_handle_twitter_no_tweets(update_status, create_ticket):
         update_status.assert_not_called()
         create_ticket.assert_not_called()
         assert not Feedback.objects.count()
+        assert not Tweet.objects.count()
 
 
 @mock.patch('feedback.twitter.create_ticket', side_effect=Open311Exception('Boom!'))
@@ -92,7 +92,8 @@ def test_handle_twitter_create_ticket_failure(update_status, create_ticket, twee
             'Pahoittelut @ViljamiTesti! Palautteen tallennus epäonnistui',
             in_reply_to_status_id=874885713845735424
         )
-        assert Feedback.objects.count() == 1
+        assert not Feedback.objects.count()
+        assert Tweet.objects.count() == 1
 
 
 @mock.patch('feedback.twitter.create_ticket')
@@ -103,13 +104,8 @@ def test_handle_twitter_rate_limit_exceeded(warning, update_status, create_ticke
     settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 1
     settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24*365*100  # "forever"
 
-    Feedback.objects.create(
-        source=Feedback.SOURCE_TWITTER,
-        source_id='777',
-        source_created_at=now(),
-        ticket_id='abc123',
-        user_identifier='ViljamiTesti',
-    )
+    feedback = Feedback.objects.create(ticket_id='abc123')
+    Tweet.objects.create(source_id='777', source_created_at=now(), user_identifier='ViljamiTesti', feedback=feedback)
 
     with mock.patch('tweepy.API.search', return_value=tweepy_search_result):
         twitter_handler = TwitterHandler()
@@ -118,4 +114,5 @@ def test_handle_twitter_rate_limit_exceeded(warning, update_status, create_ticke
         warning.assert_called_with(SubstringMatcher('User exceeded feedback post rate limit'))
         update_status.assert_not_called()
         create_ticket.assert_not_called()
-        assert Feedback.objects.count() == 2
+        assert Feedback.objects.count() == 1
+        assert Tweet.objects.count() == 2

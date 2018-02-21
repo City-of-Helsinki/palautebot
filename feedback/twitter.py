@@ -4,9 +4,10 @@ from datetime import timedelta
 import pytz
 import tweepy
 from django.conf import settings
+from django.db import transaction
 from django.utils.timezone import now
 
-from .models import Feedback
+from .models import Feedback, Tweet
 from .open311 import Open311Exception, create_ticket
 from .utils import check_required_settings
 
@@ -45,24 +46,19 @@ class TwitterHandler:
         for tweet in all_tweets:
             self._handle_tweet(tweet)
 
+    @transaction.atomic
     def _handle_tweet(self, tweet):
-        time = self.timezone.localize(tweet.created_at)
         username = tweet.user.screen_name
 
-        if Feedback.objects.filter(source_id=tweet.id, source=Feedback.SOURCE_TWITTER).exists():
-            logger.debug('Got already existing twitter feedback from @{}: {}'.format(username, tweet.text))
-            return
-
-        feedback, created = Feedback.objects.get_or_create(
-            source_id=tweet.id,
-            source=Feedback.SOURCE_TWITTER,
+        new_tweet_obj, created = Tweet.objects.get_or_create(
+            source_id=tweet.id_str,
             defaults={
-                'source_created_at': time,
-                'user_identifier': username,
+                'source_created_at': self.timezone.localize(tweet.created_at),
+                'user_identifier': username
             }
         )
-
         if not created:
+            logger.debug('Got already existing tweet {}'.format(tweet.text))
             return
 
         if not self._check_rate_limit(username):
@@ -75,25 +71,27 @@ class TwitterHandler:
         new_feedback_data = self._parse_twitter_data(tweet)
 
         ticket_id = self._create_ticket(new_feedback_data)
+
         if ticket_id:
-            feedback.ticket_id = ticket_id
-            feedback.save()
-            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (username, feedback.get_url())
+            new_feedback_obj, created = Feedback.objects.get_or_create(ticket_id=ticket_id)
+            new_tweet_obj.feedback = new_feedback_obj
+            new_tweet_obj.save()
+
+            if not created:
+                logger.debug('Feedback object already existed, ticked_id {}'.format(ticket_id))
+
+            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (username, new_feedback_obj.get_url())
         else:
             text = 'Pahoittelut @%s! Palautteen tallennus epäonnistui' % username
 
-        logger.debug('Sending answer {} to user @{}'.format(text, tweet.user.screen_name))
+        logger.debug('Sending answer "{}" to user @{}'.format(text, tweet.user.screen_name))
         self._answer_to_tweet(tweet.id, text)
 
     @staticmethod
     def _get_previous_tweet_id():
         try:
-            return Feedback.objects.filter(
-                source=Feedback.SOURCE_TWITTER
-            ).latest(
-                'source_created_at'
-            ).source_id
-        except Feedback.DoesNotExist:
+            return Tweet.objects.latest('source_created_at').source_id
+        except Tweet.DoesNotExist:
             return None
 
     @staticmethod
@@ -145,11 +143,10 @@ class TwitterHandler:
         rate_limit_period_start = now() - timedelta(minutes=settings.TWITTER_USER_RATE_LIMIT_PERIOD)
 
         feedback_count = Feedback.objects.filter(
-            source=Feedback.SOURCE_TWITTER,
-            user_identifier=username,
-            source_created_at__gte=rate_limit_period_start,
-        ).exclude(user_identifier='').count()
-        if feedback_count > settings.TWITTER_USER_RATE_LIMIT_AMOUNT:
+            tweet__source_created_at__gte=rate_limit_period_start,
+            tweet__user_identifier=username,
+        ).count()
+        if feedback_count >= settings.TWITTER_USER_RATE_LIMIT_AMOUNT:
             return False
 
         return True
