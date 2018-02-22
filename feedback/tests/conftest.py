@@ -1,6 +1,11 @@
+import json
 import pickle
 
 import pytest
+from tweepy import API
+from tweepy.models import DirectMessage as TweepyDirectMessage
+
+from feedback.tests.data.direct_message_json import test_direct_message_json
 
 
 @pytest.fixture(autouse=True)
@@ -44,3 +49,10 @@ def expected_parsed_data():
         'lat': None,
         'long': None,
     }
+
+
+@pytest.fixture
+def tweepy_direct_message():
+    test_direct_message = json.loads(test_direct_message_json)
+    test_direct_message['text'] = 'https://twitter.com/fooman/status/12345'
+    return TweepyDirectMessage.parse(API(), test_direct_message)

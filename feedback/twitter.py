@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import timedelta
 
 import pytz
@@ -7,7 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils.timezone import now
 
-from .models import Feedback, Tweet
+from .models import DirectMessage, Feedback, Tweet
 from .open311 import Open311Exception, create_ticket
 from .utils import check_required_settings
 
@@ -37,18 +38,35 @@ class TwitterHandler:
         self.timezone = pytz.timezone('Europe/Helsinki')
 
     def run(self):
-        previous_tweet_id = self._get_previous_tweet_id()
+        self.handle_tweets()
+        self.handle_direct_messages()
 
-        logger.debug('Fetching tweets, previous_tweet_id {}'.format(previous_tweet_id))
-        all_tweets = self._get_search_results(previous_tweet_id)
-        logger.debug('Got {} tweet(s)'.format(len(all_tweets)))
+    def handle_tweets(self):
+        latest_tweet_id = Tweet.objects.get_latest_source_id()
 
-        for tweet in all_tweets:
+        logger.debug('Fetching tweets, latest_tweet_id {}'.format(latest_tweet_id))
+        tweets = self._fetch_tweets(latest_tweet_id)
+        logger.info('Fetched {} tweet(s)'. format(len(tweets)))
+
+        for tweet in tweets:
             self._handle_tweet(tweet)
 
+    def handle_direct_messages(self):
+        latest_direct_message_id = DirectMessage.objects.get_latest_source_id()
+
+        logger.debug('Fetching direct messages, latest_tweet_id {}'.format(latest_direct_message_id))
+        direct_messages = self._fetch_direct_messages(latest_direct_message_id)
+        logger.info('Fetched {} direct message(s)'.format(len(direct_messages)))
+
+        for direct_message in direct_messages:
+            self._handle_direct_message(direct_message)
+
     @transaction.atomic
-    def _handle_tweet(self, tweet):
+    def _handle_tweet(self, tweet, self_submitted=True):
         username = tweet.user.screen_name
+        logger.debug(
+            'Handling a tweet from @{}: "{}" ({})'.format(username, tweet.text, tweet.id_str)
+        )
 
         new_tweet_obj, created = Tweet.objects.get_or_create(
             source_id=tweet.id_str,
@@ -58,41 +76,109 @@ class TwitterHandler:
             }
         )
         if not created:
-            logger.debug('Got already existing tweet {}'.format(tweet.text))
+            logger.warning('Already existing tweet "{}" ({})'.format(tweet.text, tweet.id_str))
             return
 
         if not self._check_rate_limit(username):
             logger.warning(
-                'User exceeded feedback post rate limit, user: @{} feedback: {}'.format(username, tweet.text)
+                'User exceeded feedback post rate limit, user: @{} feedback: "{}" ({})'.format(
+                    username, tweet.text, tweet.id_str
+                )
             )
             return
 
-        logger.debug('New twitter feedback from @{}: {}'.format(username, tweet.text))
+        logger.info(
+            'New {} submitted feedback from @{}: "{}" ({})'.format(
+                'self' if self_submitted else 'third party', username, tweet.text, tweet.id_str))
         new_feedback_data = self._parse_twitter_data(tweet)
 
         ticket_id = self._create_ticket(new_feedback_data)
+        feedback_url = None
 
         if ticket_id:
-            new_feedback_obj, created = Feedback.objects.get_or_create(ticket_id=ticket_id)
-            new_tweet_obj.feedback = new_feedback_obj
-            new_tweet_obj.save()
+            new_feedback_obj, created = Feedback.objects.get_or_create(ticket_id=ticket_id, tweet=new_tweet_obj)
+            feedback_url = new_feedback_obj.get_url()
 
-            if not created:
-                logger.debug('Feedback object already existed, ticked_id {}'.format(ticket_id))
+        answer_text = self._get_answer_text(bool(ticket_id), username, feedback_url, self_submitted)
 
-            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (username, new_feedback_obj.get_url())
-        else:
-            text = 'Pahoittelut @%s! Palautteen tallennus epäonnistui' % username
+        if answer_text is not None:
+            logger.debug('Sending answer "{}" to user @{} to tweet {}'.format(answer_text, username, tweet.id_str))
+            self._answer_to_tweet(tweet.id_str, answer_text)
 
-        logger.debug('Sending answer "{}" to user @{}'.format(text, tweet.user.screen_name))
-        self._answer_to_tweet(tweet.id, text)
+    @transaction.atomic
+    def _handle_direct_message(self, direct_message):
+        username = direct_message.sender.screen_name
+        logger.debug(
+            'Handling a direct message from @{}: "{}" ({})'.format(username, direct_message.text, direct_message.id_str)
+        )
+
+        new_direct_message_obj, created = DirectMessage.objects.get_or_create(
+            source_id=direct_message.id_str,
+            defaults={
+                'source_created_at': self.timezone.localize(direct_message.created_at),
+            }
+        )
+        if not created:
+            logger.warning(
+                'Already existing direct message "{}" ({})'.format(direct_message.text, direct_message.id_str)
+            )
+            return
+
+        status_id = self._parse_status_id_from_direct_message(direct_message)
+        if not status_id:
+            logger.debug('The message does not seem to be a redirected feedback, skipping')
+            return
+
+        logger.debug('The message contains a feedback link, fetching the original tweet {}'.format(status_id))
+
+        original_tweet = self._fetch_single_tweet(status_id)
+        if original_tweet:
+            self._handle_tweet(original_tweet, self_submitted=False)
+
+    def _fetch_tweets(self, latest_tweet_id=None):
+        try:
+            tweets = self.twitter_api.search(
+                settings.SEARCH_STRING,
+                rpp=NUM_OF_TWEETS_TO_FETCH,
+                since_id=latest_tweet_id,
+            )
+            return sorted(tweets, key=lambda x: x.created_at)
+        except tweepy.error.TweepError as e:
+            logger.error('Cannot fetch search results, exception: {}'.format(e))
+            return []
+
+    def _fetch_direct_messages(self, latest_direct_message_id=None):
+        try:
+            return self.twitter_api.direct_messages(since_id=latest_direct_message_id)
+        except tweepy.error.TweepError as e:
+            logger.error('Cannot fetch direct messages, exception: {}'.format(e))
+
+    def _fetch_single_tweet(self, status_id):
+        try:
+            return self.twitter_api.get_status(status_id)
+        except tweepy.error.TweepError as e:
+            logger.error('Cannot fetch tweet with ID {}, exception: {}'.format(status_id, e))
+            return None
+
+    def _answer_to_tweet(self, tweet_id, text):
+        try:
+            self.twitter_api.update_status(text, in_reply_to_status_id=tweet_id)
+        except tweepy.error.TweepError as e:
+            logger.error('Something went wrong with answering the tweet, exception: {}'.format(e))
 
     @staticmethod
-    def _get_previous_tweet_id():
-        try:
-            return Tweet.objects.latest('source_created_at').source_id
-        except Tweet.DoesNotExist:
-            return None
+    def _get_answer_text(success, username, feedback_url, self_submitted):
+        if success:
+            if self_submitted:
+                return 'Kiitos @{}! Seuraa etenemistä osoitteessa: {}'.format(username, feedback_url)
+            else:
+                return ('Hei @{}! Olen Helsingin kaupungin palautebotti. '
+                        'Välitin viestisi kaupungin asiantuntijalle ja siihen vastataan muutaman päivän kuluessa. '
+                        'Seuraa etenemistä osoitteesta: {}').format(username, feedback_url)
+        elif self_submitted:
+            return 'Pahoittelut @{}! Palautteen tallennus epäonnistui'.format(username)
+
+        return None
 
     @staticmethod
     def _create_ticket(feedback_data):
@@ -151,16 +237,11 @@ class TwitterHandler:
 
         return True
 
-    def _get_search_results(self, previous_tweet_id=None):
-        tweets = self.twitter_api.search(
-            settings.SEARCH_STRING,
-            rpp=NUM_OF_TWEETS_TO_FETCH,
-            since_id=previous_tweet_id,
-        )
-        return sorted(tweets, key=lambda x: x.created_at)
-
-    def _answer_to_tweet(self, tweet_id, text):
+    @staticmethod
+    def _parse_status_id_from_direct_message(direct_message):
         try:
-            self.twitter_api.update_status(text, in_reply_to_status_id=tweet_id)
-        except tweepy.error.TweepError as e:
-            logger.error('Something went wrong with answering the tweet, exception: {}'.format(e))
+            url = direct_message.entities['urls'][0]['expanded_url']
+        except (KeyError, IndexError):
+            return None
+        match = re.match(r'https?://twitter.com/[a-zA-Z0-9]+/status/([0-9]*)', url)
+        return match.group(1) if match else None
