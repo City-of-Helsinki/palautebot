@@ -55,7 +55,7 @@ same context so that the variables defined in the settings are available.
 
 * Run `python manage.py palautebot`
 
-## Settings needed for the actual bot usage
+## Settings for the actual bot usage
 
 For Twitter
 
@@ -64,6 +64,8 @@ For Twitter
     TWITTER_ACCESS_TOKEN
     TWITTER_ACCESS_TOKEN_SECRET
     SEARCH_STRING
+    TWITTER_USER_RATE_LIMIT_PERIOD (optional, default 60*24 = 1 day) how long period in minutes is used when checking user rate limit
+    TWITTER_USER_RATE_LIMIT_AMOUNT (optional, default 5) how many tweets are allowed for a user in the above period
 
 For Open311
 
