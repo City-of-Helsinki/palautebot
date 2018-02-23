@@ -1,8 +1,10 @@
 import logging
+from datetime import timedelta
 
 import pytz
 import tweepy
 from django.conf import settings
+from django.utils.timezone import now
 
 from .models import Feedback
 from .open311 import Open311Exception, create_ticket
@@ -18,116 +20,150 @@ REQUIRED_SETTINGS = (
 logger = logging.getLogger(__name__)
 
 
-# This method:
-#    1. Fetches user's feedback from Twitter
-#    2. Saves id, type and timestamp to the db
-#    3. Calls parse_tweet and gets formatted tweet data for feedback api
-#    4. Calls create_ticket and gets ticket id for feedback object and url for user
-#    5. Tries to answer the tweet with text based on whether create_ticket was successful or not
-def handle_twitter():
-    twitter_api = initialize_twitter()
+class TwitterHandler:
+    def __init__(self):
+        check_required_settings(REQUIRED_SETTINGS)
 
-    try:
-        previous_tweet_id = Feedback.objects.filter(
-            source=Feedback.SOURCE_TWITTER
-        ).latest(
-            'source_created_at'
-        ).source_id
-    except Feedback.DoesNotExist:
-        previous_tweet_id = None
+        twitter_auth = tweepy.OAuthHandler(
+            settings.TWITTER_CONSUMER_KEY,
+            settings.TWITTER_CONSUMER_SECRET
+        )
+        twitter_auth.set_access_token(
+            settings.TWITTER_ACCESS_TOKEN,
+            settings.TWITTER_ACCESS_TOKEN_SECRET
+        )
+        self.twitter_api = tweepy.API(twitter_auth)
+        self.timezone = pytz.timezone('Europe/Helsinki')
 
-    logger.debug('Fetching tweets, previous_tweet_id {}'.format(previous_tweet_id))
+    def run(self):
+        previous_tweet_id = self._get_previous_tweet_id()
 
-    # Queries maximum of RETURN_COUNT latest tweets containing string
-    all_tweets = twitter_api.search(
-        settings.SEARCH_STRING,
-        rpp=NUM_OF_TWEETS_TO_FETCH,
-        since_id=previous_tweet_id,
-    )
-    logger.debug('Got {} tweet(s)'.format(len(all_tweets)))
+        logger.debug('Fetching tweets, previous_tweet_id {}'.format(previous_tweet_id))
+        all_tweets = self._get_search_results(previous_tweet_id)
+        logger.debug('Got {} tweet(s)'.format(len(all_tweets)))
 
-    timezone = pytz.timezone('Europe/Helsinki')
+        for tweet in all_tweets:
+            self._handle_tweet(tweet)
 
-    for tweet in all_tweets:
-        time = timezone.localize(tweet.created_at)
+    def _handle_tweet(self, tweet):
+        time = self.timezone.localize(tweet.created_at)
+        username = tweet.user.screen_name
+
+        if Feedback.objects.filter(source_id=tweet.id, source=Feedback.SOURCE_TWITTER).exists():
+            logger.debug('Got already existing twitter feedback from @{}: {}'.format(username, tweet.text))
+            return
+
         feedback, created = Feedback.objects.get_or_create(
             source_id=tweet.id,
             source=Feedback.SOURCE_TWITTER,
             defaults={
-                'source_created_at': time
+                'source_created_at': time,
+                'user_identifier': username,
             }
         )
 
         if not created:
-            continue
+            return
 
-        logger.debug('New twitter feedback from @{}: {}'.format(tweet.user.screen_name, tweet.text))
-        new_feedback_data = parse_twitter_data(tweet)
+        if not self._check_rate_limit(username):
+            logger.warning(
+                'User exceeded feedback post rate limit, user: @{} feedback: {}'.format(username, tweet.text)
+            )
+            return
 
-        # post a ticket to open311
+        logger.debug('New twitter feedback from @{}: {}'.format(username, tweet.text))
+        new_feedback_data = self._parse_twitter_data(tweet)
+
+        ticket_id = self._create_ticket(new_feedback_data)
+        if ticket_id:
+            feedback.ticket_id = ticket_id
+            feedback.save()
+            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (username, feedback.get_url())
+        else:
+            text = 'Pahoittelut @%s! Palautteen tallennus epäonnistui' % username
+
+        logger.debug('Sending answer {} to user @{}'.format(text, tweet.user.screen_name))
+        self._answer_to_tweet(tweet.id, text)
+
+    @staticmethod
+    def _get_previous_tweet_id():
         try:
-            ticket_data = create_ticket(new_feedback_data)
+            return Feedback.objects.filter(
+                source=Feedback.SOURCE_TWITTER
+            ).latest(
+                'source_created_at'
+            ).source_id
+        except Feedback.DoesNotExist:
+            return None
+
+    @staticmethod
+    def _create_ticket(feedback_data):
+        try:
+            return create_ticket(feedback_data)
         except Open311Exception as e:
             logger.error('Could not create a ticket, exception: {}'.format(e))
-            text = 'Pahoittelut @%s! Palautteen tallennus epäonnistui' % tweet.user.screen_name
-        else:
-            text = 'Kiitos @%s! Seuraa etenemistä osoitteessa: %s' % (tweet.user.screen_name, ticket_data['ticket_url'])
-            feedback.ticket_id = ticket_data['ticket_id']
-            feedback.save()
+            return None
 
-        # answer to the tweet
+    @staticmethod
+    def _parse_name(name_string):
+        return name_string.split(' ') if ' ' in name_string else [name_string, None]
+
+    @staticmethod
+    def _parse_twitter_data(tweet):
+        url = 'https://twitter.com/'
+        url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
+        description_header = 'Palautetta Twitteristä käyttäjältä '
+        ticket_dict = {}
+        name = TwitterHandler._parse_name(tweet.user.name)
+        ticket_dict['first_name'] = name[0]
+        ticket_dict['last_name'] = name[1]
+        ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
+            description_header,
+            tweet.user.screen_name,
+            tweet.text,
+            url
+        )
+        ticket_dict['title'] = 'Twitter Feedback'
+        if tweet.geo is not None:
+            ticket_dict['lat'] = tweet.geo['coordinates'][0]
+            ticket_dict['long'] = tweet.geo['coordinates'][1]
+        else:
+            ticket_dict['lat'] = None
+            ticket_dict['long'] = None
+        if 'media' in tweet.entities:
+            tweet_media = tweet.entities['media']
+            ticket_dict['media_url'] = tweet_media[0]['media_url_https']
+        else:
+            ticket_dict['media_url'] = None
+        return ticket_dict
+
+    @staticmethod
+    def _check_rate_limit(username):
+        if settings.TWITTER_USER_RATE_LIMIT_PERIOD is None or settings.TWITTER_USER_RATE_LIMIT_AMOUNT is None:
+            return True
+
+        rate_limit_period_start = now() - timedelta(minutes=settings.TWITTER_USER_RATE_LIMIT_PERIOD)
+
+        feedback_count = Feedback.objects.filter(
+            source=Feedback.SOURCE_TWITTER,
+            user_identifier=username,
+            source_created_at__gte=rate_limit_period_start,
+        ).exclude(user_identifier='').count()
+        if feedback_count > settings.TWITTER_USER_RATE_LIMIT_AMOUNT:
+            return False
+
+        return True
+
+    def _get_search_results(self, previous_tweet_id=None):
+        tweets = self.twitter_api.search(
+            settings.SEARCH_STRING,
+            rpp=NUM_OF_TWEETS_TO_FETCH,
+            since_id=previous_tweet_id,
+        )
+        return sorted(tweets, key=lambda x: x.created_at)
+
+    def _answer_to_tweet(self, tweet_id, text):
         try:
-            logger.debug('Sending answer {} to user @{}'.format(text, tweet.user.screen_name))
-            twitter_api.update_status(text, in_reply_to_status_id=tweet.id)
+            self.twitter_api.update_status(text, in_reply_to_status_id=tweet_id)
         except tweepy.error.TweepError as e:
             logger.error('Something went wrong with answering the tweet, exception: {}'.format(e))
-
-
-# This function authenticates BOT and initializes twitter_api object
-def initialize_twitter():
-    check_required_settings(REQUIRED_SETTINGS)
-
-    twitter_auth = tweepy.OAuthHandler(
-        settings.TWITTER_CONSUMER_KEY,
-        settings.TWITTER_CONSUMER_SECRET
-    )
-    twitter_auth.set_access_token(
-        settings.TWITTER_ACCESS_TOKEN,
-        settings.TWITTER_ACCESS_TOKEN_SECRET
-    )
-    twitter_api = tweepy.API(twitter_auth)
-    return twitter_api
-
-
-def parse_name(name_string):
-    return name_string.split(' ') if ' ' in name_string else [name_string, None]
-
-
-# This function creates feedback dictionary
-def parse_twitter_data(tweet):
-    url = 'https://twitter.com/'
-    url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
-    description_header = 'Palautetta Twitteristä käyttäjältä '
-    ticket_dict = {}
-    name = parse_name(tweet.user.name)
-    ticket_dict['first_name'] = name[0]
-    ticket_dict['last_name'] = name[1]
-    ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
-        description_header,
-        tweet.user.screen_name,
-        tweet.text,
-        url
-    )
-    ticket_dict['title'] = 'Twitter Feedback'
-    if tweet.geo is not None:
-        ticket_dict['lat'] = tweet.geo['coordinates'][0]
-        ticket_dict['long'] = tweet.geo['coordinates'][1]
-    else:
-        ticket_dict['lat'] = None
-        ticket_dict['long'] = None
-    if 'media' in tweet.entities:
-        tweet_media = tweet.entities['media']
-        ticket_dict['media_url'] = tweet_media[0]['media_url_https']
-    else:
-        ticket_dict['media_url'] = None
-    return ticket_dict
