@@ -10,7 +10,7 @@ from feedback.open311 import create_ticket
 @pytest.mark.parametrize('required_setting', (
     'OPEN311_API_KEY',
     'OPEN311_API_SERVICE_CODE',
-    'OPEN311_POST_API_URL',
+    'OPEN311_API_BASE_URL',
 ))
 def test_create_ticket_required_settings(settings, required_setting, expected_parsed_data):
     setattr(settings, required_setting, '')
@@ -32,7 +32,7 @@ def test_create_ticket(post, expected_parsed_data):
     )
 
     post.assert_called_with(
-        'http://test_OPEN311_POST_API_URL',
+        'http://test_OPEN311_API_BASE_URL/requests.json',
         data=data,
         headers={'Content-Type': 'application/x-www-form-urlencoded'},
     )

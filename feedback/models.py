@@ -40,6 +40,9 @@ class DirectMessage(TwitterEntry):
 
 
 class Feedback(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True, db_index=True)
+
     ticket_id = models.CharField(verbose_name=_('ticket ID'), max_length=255, unique=True)
     current_comment = models.TextField(verbose_name=_('current comment'), blank=True)
     tweet = models.ForeignKey(Tweet, verbose_name=_('tweet'), on_delete=models.CASCADE)
