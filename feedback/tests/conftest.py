@@ -17,7 +17,6 @@ def override_settings(settings):
         'TWITTER_ACCESS_TOKEN_SECRET',
         'OPEN311_API_KEY',
         'OPEN311_API_SERVICE_CODE',
-        'SEARCH_STRING',
     ):
         value = 'test_{}'.format(setting_name)
         setattr(settings, setting_name, value)
@@ -28,6 +27,7 @@ def override_settings(settings):
 
     settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 5
     settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24
+    settings.SEARCH_STRING = '#helpalaute'
 
 
 @pytest.fixture(scope='session')
@@ -39,10 +39,10 @@ def tweepy_search_result():
 @pytest.fixture
 def expected_parsed_data():
     return {
-        'title': 'Twitter Feedback',
+        'title': 'Twitter-palaute',
         'description': (
-            'Palautetta Twitteristä käyttäjältä ViljamiTesti\n #helpalaute Tämä on testi kahdella kuvalla '
-            '\N{TIGER FACE} https://t.co/rjnxqVko2Z\nurl: https://twitter.com/ViljamiTesti/status/874885713845735424'
+            'Palautetta Twitterissä käyttäjältä ViljamiTesti\n Tämä on testi kahdella kuvalla '
+            '\N{TIGER FACE} https://t.co/rjnxqVko2Z\nhttps://twitter.com/ViljamiTesti/status/874885713845735424'
         ),
         'first_name': 'Testi',
         'last_name': 'Tunnus',

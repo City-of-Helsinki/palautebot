@@ -197,18 +197,18 @@ class TwitterHandler:
     def _parse_twitter_data(tweet):
         url = 'https://twitter.com/'
         url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
-        description_header = 'Palautetta Twitteristä käyttäjältä '
+        description_header = 'Palautetta Twitterissä käyttäjältä '
         ticket_dict = {}
         name = TwitterHandler._parse_name(tweet.user.name)
         ticket_dict['first_name'] = name[0]
         ticket_dict['last_name'] = name[1]
-        ticket_dict['description'] = '%s%s\n %s\nurl: %s' % (
+        ticket_dict['description'] = '%s%s\n%s\n%s' % (
             description_header,
             tweet.user.screen_name,
-            tweet.text,
+            tweet.text.replace(settings.SEARCH_STRING, ''),
             url
         )
-        ticket_dict['title'] = 'Twitter Feedback'
+        ticket_dict['title'] = 'Twitter-palaute'
         if tweet.geo is not None:
             ticket_dict['lat'] = tweet.geo['coordinates'][0]
             ticket_dict['long'] = tweet.geo['coordinates'][1]

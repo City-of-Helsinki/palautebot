@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.timezone import now
 from tweepy import API
@@ -50,7 +51,7 @@ def test_handle_tweets_success(update_status, create_ticket, tweepy_search_resul
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 
-        search.assert_called_with('test_SEARCH_STRING', rpp=100, since_id='777')
+        search.assert_called_with(settings.SEARCH_STRING, rpp=100, since_id='777')
         create_ticket.assert_called_with(expected_parsed_data)
         update_status.assert_called_with(
             'Kiitos @ViljamiTesti! Seuraa etenemistä osoitteessa: http://test_OPEN311_FEEDBACK_URL?fid=7',
@@ -87,7 +88,7 @@ def test_handle_tweets_create_ticket_failure(update_status, create_ticket, tweep
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 
-        search.assert_called_with('test_SEARCH_STRING', rpp=100, since_id=None)
+        search.assert_called_with(settings.SEARCH_STRING, rpp=100, since_id=None)
         update_status.assert_called_with(
             'Pahoittelut @ViljamiTesti! Palautteen tallennus epäonnistui',
             in_reply_to_status_id='874885713845735424'
