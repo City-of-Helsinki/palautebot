@@ -53,25 +53,34 @@ same context so that the variables defined in the settings are available.
 
 ## Running the bot
 
-* Run `python manage.py palautebot`
+### Handling feedback from Twitter
+
+* Run `python manage.py handle_twitter_feedback`
+
+### Handling ticket updates in Open311
+
+* Run `python manage.py handle_ticket_updates`
 
 ## Settings for the actual bot usage
 
 For Twitter
 
-    TWITTER_CONSUMER_KEY
-    TWITTER_CONSUMER_SECRET
-    TWITTER_ACCESS_TOKEN
-    TWITTER_ACCESS_TOKEN_SECRET
-    SEARCH_STRING
-    TWITTER_USER_RATE_LIMIT_PERIOD (optional, default 60*24 = 1 day) how long period in minutes is used when checking user rate limit
-    TWITTER_USER_RATE_LIMIT_AMOUNT (optional, default 5) how many tweets are allowed for a user in the above period
+* TWITTER_CONSUMER_KEY
+* TWITTER_CONSUMER_SECRET
+* TWITTER_ACCESS_TOKEN
+* TWITTER_ACCESS_TOKEN_SECRET
+* SEARCH_STRING any tweet found when searching with this string is considered feedback. tested only with hashtags
+* TWITTER_USER_RATE_LIMIT_PERIOD (optional, default 60*24 = 1 day) how long period in minutes is used when checking user rate limit
+* TWITTER_USER_RATE_LIMIT_AMOUNT (optional, default 5) how many tweets are allowed for a user in the above period
 
 For Open311
 
-    OPEN311_API_KEY
-    OPEN311_API_SERVICE_CODE
-    OPEN311_POST_API_URL
+* OPEN311_API_KEY
+* OPEN311_API_SERVICE_CODE
+* OPEN311_API_BASE_URL (in Helsinki: "https://asiointi.hel.fi/palautews/rest/v1/")
+* OPEN311_FEEDBACK_URL url of a web page where a single Open311 ticket is displayed, must include {} as a placeholder for the ticket id
+  (in Helsinki: "https://www.hel.fi/helsinki/fi/kaupunki-ja-hallinto/osallistu-ja-vaikuta/palaute/nayta-palaute?fid={}") 
+* OPEN311_TICKET_POLLING_TIME (optional, default 24*30 = 30 days) how long tickets are polled from Open311 after their latest modification
 
 ## Getting the keys
   - **Twitter**
