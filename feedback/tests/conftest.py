@@ -22,8 +22,9 @@ def override_settings(settings):
         value = 'test_{}'.format(setting_name)
         setattr(settings, setting_name, value)
 
-    settings.OPEN311_POST_API_URL = 'http://test_OPEN311_POST_API_URL'
+    settings.OPEN311_API_BASE_URL = 'http://test_OPEN311_API_BASE_URL'
     settings.OPEN311_FEEDBACK_URL = 'http://test_OPEN311_FEEDBACK_URL?fid={}'
+    settings.OPEN311_TICKET_POLLING_TIME = 24*30
 
     settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 5
     settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24

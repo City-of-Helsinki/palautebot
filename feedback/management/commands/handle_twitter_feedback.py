@@ -8,10 +8,12 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = 'Palautebot runner management command'
+    help = 'Handle Twitter feedback from tweets and direct messages (redirected tweets)'
 
     def handle(self, *args, **options):
-        logger.info('Running Palautebot')
+        logger.info('Handling Twitter...')
 
         twitter_handler = TwitterHandler()
         twitter_handler.run()
+
+        logger.info('Done.')

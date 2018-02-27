@@ -46,7 +46,7 @@ class TwitterHandler:
 
         logger.debug('Fetching tweets, latest_tweet_id {}'.format(latest_tweet_id))
         tweets = self._fetch_tweets(latest_tweet_id)
-        logger.info('Fetched {} tweet(s)'. format(len(tweets)))
+        logger.debug('Fetched {} tweet(s)'. format(len(tweets)))
 
         for tweet in tweets:
             self._handle_tweet(tweet)
@@ -56,7 +56,7 @@ class TwitterHandler:
 
         logger.debug('Fetching direct messages, latest_tweet_id {}'.format(latest_direct_message_id))
         direct_messages = self._fetch_direct_messages(latest_direct_message_id)
-        logger.info('Fetched {} direct message(s)'.format(len(direct_messages)))
+        logger.debug('Fetched {} direct message(s)'.format(len(direct_messages)))
 
         for direct_message in direct_messages:
             self._handle_direct_message(direct_message)
@@ -99,11 +99,10 @@ class TwitterHandler:
             new_feedback_obj, created = Feedback.objects.get_or_create(ticket_id=ticket_id, tweet=new_tweet_obj)
             feedback_url = new_feedback_obj.get_url()
 
-        answer_text = self._get_answer_text(bool(ticket_id), username, feedback_url, self_submitted)
+        answer_text = self._get_feedback_answer_text(bool(ticket_id), username, feedback_url, self_submitted)
 
         if answer_text is not None:
-            logger.debug('Sending answer "{}" to user @{} to tweet {}'.format(answer_text, username, tweet.id_str))
-            self._answer_to_tweet(tweet.id_str, answer_text)
+            self.answer_to_tweet(tweet.id_str, answer_text)
 
     @transaction.atomic
     def _handle_direct_message(self, direct_message):
@@ -133,6 +132,7 @@ class TwitterHandler:
 
         original_tweet = self._fetch_single_tweet(status_id)
         if original_tweet:
+            logger.info('@{} submitted tweet {} as feedback'.format(username, status_id))
             self._handle_tweet(original_tweet, self_submitted=False)
 
     def _fetch_tweets(self, latest_tweet_id=None):
@@ -160,14 +160,15 @@ class TwitterHandler:
             logger.error('Cannot fetch tweet with ID {}, exception: {}'.format(status_id, e))
             return None
 
-    def _answer_to_tweet(self, tweet_id, text):
+    def answer_to_tweet(self, tweet_id, text):
+        logger.debug('Sending answer "{}" to tweet {}'.format(text, tweet_id))
         try:
             self.twitter_api.update_status(text, in_reply_to_status_id=tweet_id)
         except tweepy.error.TweepError as e:
             logger.error('Something went wrong with answering the tweet, exception: {}'.format(e))
 
     @staticmethod
-    def _get_answer_text(success, username, feedback_url, self_submitted):
+    def _get_feedback_answer_text(success, username, feedback_url, self_submitted):
         if success:
             if self_submitted:
                 return 'Kiitos @{}! Seuraa etenemistä osoitteessa: {}'.format(username, feedback_url)
