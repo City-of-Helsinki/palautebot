@@ -135,3 +135,19 @@ def test_handle_direct_messages_success(handle_tweet, fetch_single_tweet, tweepy
         handle_tweet.assert_called_with('iamatweet', self_submitted=False)
         assert DirectMessage.objects.count() == 2
         assert DirectMessage.objects.latest('id').source_id == tweepy_direct_message.id_str
+
+
+@mock.patch('feedback.twitter.create_ticket')
+@mock.patch('tweepy.API.update_status')
+@pytest.mark.django_db
+def test_handle_tweets_retweet_ignoring(update_status, create_ticket, tweepy_search_result, monkeypatch):
+    monkeypatch.setattr(tweepy_search_result[0], 'retweeted_status', {'foo': 'bar'}, raising=False)
+
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result):
+        twitter_handler = TwitterHandler()
+        twitter_handler.handle_tweets()
+
+        update_status.assert_not_called()
+        create_ticket.assert_not_called()
+        assert not Feedback.objects.count()
+        assert Tweet.objects.count() == 1
