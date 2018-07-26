@@ -55,6 +55,6 @@ def handle_ticket_updates():
             feedback.current_comment = status_notes
             feedback.save()
 
-            answer = '@{} palautteeseesi on vastattu:\n{}'.format(feedback.tweet.user_identifier, status_notes)
+            answer = '@{} Palautteeseesi on vastattu:\n{}'.format(feedback.tweet.user_identifier, status_notes)
             truncated_answer = truncate_answer(answer, feedback.get_url())
             twitter_handler.answer_to_tweet(feedback.tweet.source_id, truncated_answer)

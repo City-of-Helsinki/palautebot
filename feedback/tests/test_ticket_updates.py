@@ -24,7 +24,7 @@ def test_ticket_updates_success(answer_to_tweet, answer):
                     return_value=[{'status_notes': answer}]):
         handle_ticket_updates()
 
-    answer_to_tweet.assert_called_with('777', SubstringMatcher('@fooman palautteeseesi on vastattu:\n'))
+    answer_to_tweet.assert_called_with('777', SubstringMatcher('@fooman Palautteeseesi on vastattu:\n'))
     if len(answer) <= 280:
         answer_to_tweet.assert_called_with('777', SubstringMatcher(answer))
     else:
