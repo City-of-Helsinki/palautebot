@@ -35,7 +35,7 @@ def test_initialize_twitter_success():
 
 def test_parse_feedback(tweepy_search_result, expected_parsed_data):
     tweet = tweepy_search_result[0]
-    parsed_data = TwitterHandler._parse_twitter_data(tweet)
+    parsed_data = TwitterHandler._parse_twitter_data(tweet, tweet.text)
 
     assert parsed_data == expected_parsed_data
 
