@@ -64,8 +64,13 @@ class TwitterHandler:
     @transaction.atomic
     def _handle_tweet(self, tweet, self_submitted=True):
         username = tweet.user.screen_name
+
+        tweet_text = tweet.text
+        if tweet.truncated:
+            tweet_text = self.twitter_api.get_status(tweet.id, tweet_mode='extended').full_text
+
         logger.debug(
-            'Handling a tweet from @{}: "{}" ({})'.format(username, tweet.text, tweet.id_str)
+            'Handling a tweet from @{}: "{}" ({})'.format(username, tweet_text, tweet.id_str)
         )
 
         new_tweet_obj, created = Tweet.objects.get_or_create(
@@ -76,7 +81,7 @@ class TwitterHandler:
             }
         )
         if not created:
-            logger.warning('Already existing tweet "{}" ({})'.format(tweet.text, tweet.id_str))
+            logger.warning('Already existing tweet "{}" ({})'.format(tweet_text, tweet.id_str))
             return
 
         if hasattr(tweet, 'retweeted_status'):
@@ -86,15 +91,16 @@ class TwitterHandler:
         if not self._check_rate_limit(username):
             logger.warning(
                 'User exceeded feedback post rate limit, user: @{} feedback: "{}" ({})'.format(
-                    username, tweet.text, tweet.id_str
+                    username, tweet_text, tweet.id_str
                 )
             )
             return
 
         logger.info(
             'New {} submitted feedback from @{}: "{}" ({})'.format(
-                'self' if self_submitted else 'third party', username, tweet.text, tweet.id_str))
-        new_feedback_data = self._parse_twitter_data(tweet)
+                'self' if self_submitted else 'third party', username, tweet_text, tweet.id_str))
+
+        new_feedback_data = self._parse_twitter_data(tweet, tweet_text)
 
         ticket_id = self._create_ticket(new_feedback_data)
         feedback_url = None
@@ -198,7 +204,7 @@ class TwitterHandler:
         return name_string.split(' ') if ' ' in name_string else [name_string, None]
 
     @staticmethod
-    def _parse_twitter_data(tweet):
+    def _parse_twitter_data(tweet, tweet_text):
         url = 'https://twitter.com/'
         url = '%s%s/status/%s' % (url, tweet.user.screen_name, tweet.id)
         description_header = 'Palautetta Twitterissä käyttäjältä '
@@ -209,7 +215,7 @@ class TwitterHandler:
         ticket_dict['description'] = '%s%s\n%s\n%s' % (
             description_header,
             tweet.user.screen_name,
-            tweet.text.replace(settings.SEARCH_STRING, ''),
+            tweet_text.replace(settings.SEARCH_STRING, ''),
             url
         )
         ticket_dict['title'] = 'Twitter-palaute'
