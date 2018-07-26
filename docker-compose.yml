@@ -1,0 +1,33 @@
+version: '3'
+services:
+    postgres:
+        image: postgres:9.5
+        environment:
+            POSTGRES_USER: palautebot
+            POSTGRES_PASSWORD: palautebot
+            POSTGRES_DB: palautebot
+        ports:
+            - 5432:5432
+        volumes:
+            - postgres-data-volume:/var/lib/postgresql/data
+        container_name: palautebot-db
+
+    django:
+        build: .
+        command: bash -c 'tail -f /dev/null'
+        env_file:
+            - ./.env
+        environment:
+            DATABASE_URL: postgres://palautebot:palautebot@palautebot-db/palautebot
+        volumes:
+            - .:/code
+            - django-media-volume:/var/media/
+        ports:
+            - "8000:8000"
+        depends_on:
+            - postgres
+        container_name: palautebot-backend
+
+volumes:
+        postgres-data-volume:
+        django-media-volume:
