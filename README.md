@@ -7,36 +7,61 @@
 * Twitter account and keys
 * Open311 keys
 
-## Creating a Python virtualenv
+## Development with Docker
+
+1. Create `.env` environment file
+
+2. Set at least `DEBUG=1` in this `.env` file
+
+3. Run `docker-compose up`
+
+4. Run migrations if needed: 
+    * `docker exec palautebot-backend python manage.py migrate`
+
+5. Create superuser if needed: 
+    * `docker exec -it palautebot-backend python manage.py createsuperuser`
+   
+6. Run the server:
+    * `docker exec -it palautebot-backend python manage.py runserver 0:8000`
+
+## Development without Docker
+
+### Creating a Python virtualenv
 
 First it is highly recommended to create a Python virtualenv for the project. There are many ways to do this, using vanilla Python:
 
 * Run `python -m venv venv`
 
-## Python requirements
+### Python requirements
 
 Python requirements are handled with [pip-tools](https://github.com/jazzband/pip-tools). To install it
 
 * Run `pip install pip-tools`
 
-### Creating / updating Python requirements files (needed only when the requirements are changed)
+#### Creating / updating Python requirements files (needed only when the requirements are changed)
 
 * Run `pip-compile`
 * For development requirements run `pip-compile requirements-dev.in`
 
-### Installing Python requirements
+#### Installing Python requirements
 
 * Run `pip-sync`
 * To install also development requirements instead run `pip-sync requirements.txt requirements-dev.txt`
 
-## Database
+### Database
 
 To setup a database compatible with the default database settings:
 
     sudo -u postgres createuser -P -R -S palautebot  # use password `palautebot`
     sudo -u postgres createdb -O palautebot palautebot
 
-## Django configuration
+### Running development environment
+
+* Enable debug `echo 'DEBUG=True' >> .env`
+* Run `python manage.py migrate`
+* Run `python manage.py runserver` (admin UI will be accessible at http://localhost:8000/admin)
+
+## Extra Django configuration
 
 Environment variables are used to customize configuration in `palautebot/settings.py`. If you wish to override any
 settings, you can place them in a local `.env` file which will automatically be sourced when Django imports
@@ -44,12 +69,6 @@ the settings file.
 
 Alternatively you can create a `local_settings.py` which is executed at the end of the `palautebot/settings.py` in the
 same context so that the variables defined in the settings are available.
-
-## Running development environment
-
-* Enable debug `echo 'DEBUG=True' >> .env`
-* Run `python manage.py migrate`
-* Run `python manage.py runserver` (admin UI will be accessible at http://localhost:8000/admin)
 
 ## Running the bot
 
