@@ -43,11 +43,12 @@ def test_parse_feedback(tweepy_search_result, expected_parsed_data):
 @mock.patch('feedback.twitter.create_ticket', return_value='7')
 @mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
-def test_handle_tweets_success(update_status, create_ticket, tweepy_search_result, expected_parsed_data):
+def test_handle_tweets_success(update_status, create_ticket, tweepy_search_result, tweepy_user, expected_parsed_data):
     tweet = Tweet.objects.create(source_id='777', source_created_at=now(), user_identifier='fooman')
     Feedback.objects.create(ticket_id='abc123', tweet=tweet)
 
-    with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search:
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search,\
+            mock.patch('tweepy.API.me', return_value=tweepy_user):
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 
@@ -83,8 +84,9 @@ def test_handle_tweets_no_tweets(update_status, create_ticket):
 @mock.patch('feedback.twitter.create_ticket', side_effect=Open311Exception('Boom!'))
 @mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
-def test_handle_tweets_create_ticket_failure(update_status, create_ticket, tweepy_search_result):
-    with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search:
+def test_handle_tweets_create_ticket_failure(update_status, create_ticket, tweepy_search_result, tweepy_user):
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result) as search, \
+            mock.patch('tweepy.API.me', return_value=tweepy_user):
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 
@@ -101,14 +103,17 @@ def test_handle_tweets_create_ticket_failure(update_status, create_ticket, tweep
 @mock.patch('tweepy.API.update_status')
 @mock.patch('feedback.twitter.logger.warning')
 @pytest.mark.django_db
-def test_handle_tweets_rate_limit_exceeded(warning, update_status, create_ticket, tweepy_search_result, settings):
+def test_handle_tweets_rate_limit_exceeded(
+    warning, update_status, create_ticket, tweepy_search_result, tweepy_user, settings
+):
     settings.TWITTER_USER_RATE_LIMIT_AMOUNT = 1
     settings.TWITTER_USER_RATE_LIMIT_PERIOD = 60*24*365*100  # "forever"
 
     tweet = Tweet.objects.create(source_id='777', source_created_at=now(), user_identifier='ViljamiTesti')
     Feedback.objects.create(ticket_id='abc123', tweet=tweet)
 
-    with mock.patch('tweepy.API.search', return_value=tweepy_search_result):
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result), \
+            mock.patch('tweepy.API.me', return_value=tweepy_user):
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 
@@ -140,10 +145,28 @@ def test_handle_direct_messages_success(handle_tweet, fetch_single_tweet, tweepy
 @mock.patch('feedback.twitter.create_ticket')
 @mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
-def test_handle_tweets_retweet_ignoring(update_status, create_ticket, tweepy_search_result, monkeypatch):
+def test_handle_tweets_retweet_ignoring(
+    update_status, create_ticket, tweepy_search_result, tweepy_user, monkeypatch
+):
     monkeypatch.setattr(tweepy_search_result[0], 'retweeted_status', {'foo': 'bar'}, raising=False)
 
-    with mock.patch('tweepy.API.search', return_value=tweepy_search_result):
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result), \
+            mock.patch('tweepy.API.me', return_value=tweepy_user):
+        twitter_handler = TwitterHandler()
+        twitter_handler.handle_tweets()
+
+        update_status.assert_not_called()
+        create_ticket.assert_not_called()
+        assert not Feedback.objects.count()
+        assert Tweet.objects.count() == 1
+
+
+@mock.patch('feedback.twitter.create_ticket')
+@mock.patch('tweepy.API.update_status')
+@pytest.mark.django_db
+def test_handle_tweets_ignore_own_tweets(update_status, create_ticket, tweepy_search_result):
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result), \
+            mock.patch('tweepy.API.me', return_value=tweepy_search_result[0].user):
         twitter_handler = TwitterHandler()
         twitter_handler.handle_tweets()
 

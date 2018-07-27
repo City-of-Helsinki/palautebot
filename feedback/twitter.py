@@ -88,6 +88,11 @@ class TwitterHandler:
             logger.debug('The tweet is a retweet, skipping')
             return
 
+        if not settings.DEBUG:
+            if tweet.user.id == self.twitter_api.me().id:
+                logger.debug('The tweet is written by the bot itself, skipping')
+                return
+
         if not self._check_rate_limit(username):
             logger.warning(
                 'User exceeded feedback post rate limit, user: @{} feedback: "{}" ({})'.format(
