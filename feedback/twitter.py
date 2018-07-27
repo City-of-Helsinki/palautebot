@@ -212,12 +212,22 @@ class TwitterHandler:
         name = TwitterHandler._parse_name(tweet.user.name)
         ticket_dict['first_name'] = name[0]
         ticket_dict['last_name'] = name[1]
-        ticket_dict['description'] = '%s%s\n%s\n%s' % (
+        description = '%s%s\n%s\n%s' % (
             description_header,
             tweet.user.screen_name,
             tweet_text.replace(settings.SEARCH_STRING, ''),
             url
         )
+        if tweet.place:
+            place_name = 'Paikka: %s' % tweet.place.full_name
+            description = '%s%s\n%s\n%s\n%s' % (
+                description_header,
+                tweet.user.screen_name,
+                tweet_text.replace(settings.SEARCH_STRING, ''),
+                place_name,
+                url
+            )
+        ticket_dict['description'] = description
         ticket_dict['title'] = 'Twitter-palaute'
         if tweet.geo is not None:
             ticket_dict['lat'] = tweet.geo['coordinates'][0]
