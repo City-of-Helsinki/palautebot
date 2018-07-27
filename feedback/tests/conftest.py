@@ -1,5 +1,6 @@
 import json
 import pickle
+from copy import deepcopy
 
 import pytest
 from tweepy import API
@@ -34,6 +35,13 @@ def override_settings(settings):
 def tweepy_search_result():
     with open('feedback/tests/data/pickled_tweepy_search_result', 'rb') as data:
         return pickle.load(data)
+
+
+@pytest.fixture(scope='session')
+def tweepy_user(tweepy_search_result):
+    user = deepcopy(tweepy_search_result[0].user)
+    setattr(user, 'id', '1234567890')
+    return user
 
 
 @pytest.fixture
