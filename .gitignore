@@ -11,6 +11,7 @@ local_settings.py
 .coverage
 htmlcov
 .cache
+.pytest_cache/
 perf*csv
 /*hack*py
 *.egg-info
