@@ -234,9 +234,9 @@ class TwitterHandler:
             )
         ticket_dict['description'] = description
         ticket_dict['title'] = 'Twitter-palaute'
-        if tweet.geo is not None:
-            ticket_dict['lat'] = tweet.geo['coordinates'][0]
-            ticket_dict['long'] = tweet.geo['coordinates'][1]
+        if tweet.coordinates is not None:
+            ticket_dict['lat'] = tweet.coordinates['coordinates'][1]
+            ticket_dict['long'] = tweet.coordinates['coordinates'][0]
         else:
             ticket_dict['lat'] = None
             ticket_dict['long'] = None
