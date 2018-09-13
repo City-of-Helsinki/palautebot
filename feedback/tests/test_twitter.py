@@ -164,6 +164,25 @@ def test_handle_tweets_retweet_ignoring(
 @mock.patch('feedback.twitter.create_ticket')
 @mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
+def test_handle_tweets_reply_ignoring(
+    update_status, create_ticket, tweepy_search_result, tweepy_user, monkeypatch
+):
+    monkeypatch.setattr(tweepy_search_result[0], 'in_reply_to_status_id', '123345678', raising=False)
+
+    with mock.patch('tweepy.API.search', return_value=tweepy_search_result), \
+            mock.patch('tweepy.API.me', return_value=tweepy_user):
+        twitter_handler = TwitterHandler()
+        twitter_handler.handle_tweets()
+
+        update_status.assert_not_called()
+        create_ticket.assert_not_called()
+        assert not Feedback.objects.count()
+        assert Tweet.objects.count() == 1
+
+
+@mock.patch('feedback.twitter.create_ticket')
+@mock.patch('tweepy.API.update_status')
+@pytest.mark.django_db
 def test_handle_tweets_ignore_own_tweets(update_status, create_ticket, tweepy_search_result):
     with mock.patch('tweepy.API.search', return_value=tweepy_search_result), \
             mock.patch('tweepy.API.me', return_value=tweepy_search_result[0].user):
