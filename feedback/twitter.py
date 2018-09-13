@@ -88,6 +88,10 @@ class TwitterHandler:
             logger.debug('The tweet is a retweet, skipping')
             return
 
+        if tweet.in_reply_to_status_id:
+            logger.debug('The tweet is a reply in a thread, skipping')
+            return
+
         if not settings.DEBUG:
             if tweet.user.id == self.twitter_api.me().id:
                 logger.debug('The tweet is written by the bot itself, skipping')
