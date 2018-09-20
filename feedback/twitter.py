@@ -171,6 +171,7 @@ class TwitterHandler:
             return self.twitter_api.direct_messages(since_id=latest_direct_message_id)
         except tweepy.error.TweepError as e:
             logger.error('Cannot fetch direct messages, exception: {}'.format(e))
+            return []
 
     def _fetch_single_tweet(self, status_id):
         try:
