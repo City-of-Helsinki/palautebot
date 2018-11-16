@@ -124,22 +124,35 @@ def test_handle_tweets_rate_limit_exceeded(
         assert Tweet.objects.count() == 2
 
 
-@mock.patch('feedback.twitter.TwitterHandler._fetch_single_tweet', return_value='iamatweet')
-@mock.patch('feedback.twitter.TwitterHandler._handle_tweet')
+@mock.patch('feedback.twitter.create_ticket', return_value='7')
+@mock.patch('tweepy.API.update_status')
 @pytest.mark.django_db
-def test_handle_direct_messages_success(handle_tweet, fetch_single_tweet, tweepy_direct_message):
-    direct_message = DirectMessage.objects.create(source_id='888', source_created_at=now())
-
-    with mock.patch(
-            'feedback.twitter.TwitterHandler._fetch_direct_messages',
-            return_value=[tweepy_direct_message]) as fetch_direct_messages:
+def test_custom_direct_messages_parsing(
+    update_status, create_ticket, tweepy_search_result, tweepy_user, custom_direct_messages
+):
+    with mock.patch('tweepy.API.me', return_value=tweepy_user), \
+            mock.patch('feedback.twitter.TwitterHandler._fetch_direct_messages',
+                       return_value=custom_direct_messages), \
+            mock.patch('feedback.twitter.TwitterHandler._fetch_single_tweet',
+                       return_value=tweepy_search_result[0]):
         twitter_handler = TwitterHandler()
         twitter_handler.handle_direct_messages()
 
-        fetch_direct_messages.assert_called_with(direct_message.source_id)
-        handle_tweet.assert_called_with('iamatweet', self_submitted=False)
-        assert DirectMessage.objects.count() == 2
-        assert DirectMessage.objects.latest('id').source_id == tweepy_direct_message.id_str
+        assert DirectMessage.objects.count() == 1
+        assert DirectMessage.objects.latest('id').source_id == custom_direct_messages[0].id_str
+        assert Feedback.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_handle_dms_ignore_own_dms(tweepy_direct_message):
+    with mock.patch('tweepy.API.me', return_value=tweepy_direct_message.sender), \
+             mock.patch('feedback.twitter.TwitterHandler._fetch_direct_messages',
+                        return_value=[tweepy_direct_message]):
+        twitter_handler = TwitterHandler()
+        twitter_handler.handle_direct_messages()
+
+        assert not Feedback.objects.count()
+        assert DirectMessage.objects.count() == 1
 
 
 @mock.patch('feedback.twitter.create_ticket')
