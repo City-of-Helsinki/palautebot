@@ -273,5 +273,5 @@ class TwitterHandler:
             url = direct_message.entities['urls'][0]['expanded_url']
         except (KeyError, IndexError):
             return None
-        match = re.match(r'https?://twitter.com/[a-zA-Z0-9]+/status/([0-9]*)', url)
-        return match.group(1) if match else None
+        match = re.match(r'https?://twitter.com/(\w){1,15}/status/([0-9]*)', url)
+        return match.group(2) if match else None
