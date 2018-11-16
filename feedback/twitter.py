@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils.timezone import now
 
+from .custom_tweepy_api import CustomTweepyAPI, custom_parser
 from .models import DirectMessage, Feedback, Tweet
 from .open311 import Open311Exception, create_ticket
 from .utils import check_required_settings
@@ -35,6 +36,7 @@ class TwitterHandler:
             settings.TWITTER_ACCESS_TOKEN_SECRET
         )
         self.twitter_api = tweepy.API(twitter_auth)
+        self.custom_twitter_api = CustomTweepyAPI(twitter_auth, parser=custom_parser)
         self.timezone = pytz.timezone('Europe/Helsinki')
 
     def run(self):
@@ -55,7 +57,7 @@ class TwitterHandler:
         latest_direct_message_id = DirectMessage.objects.get_latest_source_id()
 
         logger.debug('Fetching direct messages, latest_tweet_id {}'.format(latest_direct_message_id))
-        direct_messages = self._fetch_direct_messages(latest_direct_message_id)
+        direct_messages = self._fetch_direct_messages()
         logger.debug('Fetched {} direct message(s)'.format(len(direct_messages)))
 
         for direct_message in direct_messages:
@@ -142,6 +144,10 @@ class TwitterHandler:
             )
             return
 
+        if direct_message.sender.id == self.custom_twitter_api.me().id:
+            logger.debug('The direct message is written by the bot itself, skipping')
+            return
+
         status_id = self._parse_status_id_from_direct_message(direct_message)
         if not status_id:
             logger.debug('The message does not seem to be a redirected feedback, skipping')
@@ -166,9 +172,9 @@ class TwitterHandler:
             logger.error('Cannot fetch search results, exception: {}'.format(e))
             return []
 
-    def _fetch_direct_messages(self, latest_direct_message_id=None):
+    def _fetch_direct_messages(self):
         try:
-            return self.twitter_api.direct_messages(since_id=latest_direct_message_id)
+            return self.custom_twitter_api.direct_messages()
         except tweepy.error.TweepError as e:
             logger.error('Cannot fetch direct messages, exception: {}'.format(e))
 

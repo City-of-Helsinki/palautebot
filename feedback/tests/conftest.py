@@ -1,12 +1,15 @@
 import json
 import pickle
 from copy import deepcopy
+from unittest import mock
 
 import pytest
-from tweepy import API
+import responses
+from tweepy import API, OAuthHandler
 from tweepy.models import DirectMessage as TweepyDirectMessage
 
-from feedback.tests.data.direct_message_json import test_direct_message_json
+from feedback.custom_tweepy_api import CustomTweepyAPI, custom_parser
+from feedback.tests.data.direct_message_json import new_direct_message_api_response, test_direct_message_json
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +68,16 @@ def tweepy_direct_message():
     test_direct_message = json.loads(test_direct_message_json)
     test_direct_message['text'] = 'https://twitter.com/fooman/status/12345'
     return TweepyDirectMessage.parse(API(), test_direct_message)
+
+
+@responses.activate
+@pytest.fixture
+def custom_direct_messages(tweepy_search_result):
+    with mock.patch('tweepy.API.get_user', return_value=tweepy_search_result[0].user):
+        dm_json = json.loads(new_direct_message_api_response)
+        responses.add(responses.GET, 'https://api.twitter.com/1.1/direct_messages/events/list.json',
+                      json=dm_json, status=200)
+
+        auth = OAuthHandler('consumer-key', 'consumer-secret')
+        auth.set_access_token('access-token', 'access-token-secret')
+        return CustomTweepyAPI(auth, parser=custom_parser).direct_messages()

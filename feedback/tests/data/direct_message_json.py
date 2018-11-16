@@ -93,3 +93,43 @@ test_direct_message_json = """{
     "sender_screen_name": "theSeanCook",
     "text": "https://twitter.com/fooman/status/98765"
 }"""
+
+new_direct_message_api_response = """{
+    "events": [
+        {
+            "type": "message_create",
+            "id": "12345678987654321",
+            "created_timestamp": "1542113610846",
+            "message_create": {
+                "target": {
+                    "recipient_id": "123456789"
+                },
+                "sender_id": "987654321",
+                "source_app_id": "268278",
+                "message_data": {
+                    "text": "https:\/\/t.co\/SxhSwDrnGu",
+                    "entities": {
+                        "hashtags": [],
+                        "symbols": [],
+                        "user_mentions": [],
+                        "urls": [
+                            {
+                                "url": "https:\/\/t.co\/SxhSwDrnGu",
+                                "expanded_url": "https:\/\/twitter.com\/fooman\/status\/1042411246337884160",
+                                "display_url": "twitter.com\/fooman\u2026",
+                                "indices": [0,23]
+                            }
+                        ]
+                    }
+                }
+            }
+        }    
+    ],
+    "apps": {
+        "268278": {
+            "id": "268278",
+            "name": "Twitter Web Client",
+            "url": "http:\/\/twitter.com"
+        }
+    }
+}"""
