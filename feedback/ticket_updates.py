@@ -17,11 +17,17 @@ TWITTER_MESSAGE_MAX_CHARS = 280
 TWITTER_SHORT_URL_LENGTH = 30
 
 
-def truncate_answer(text, url):
-    if len(text) > TWITTER_MESSAGE_MAX_CHARS:
-        char_count = TWITTER_MESSAGE_MAX_CHARS - TWITTER_SHORT_URL_LENGTH - 3  # 3 dots
-        text = '{}...{}'.format(text[:char_count], url)
-    return text
+def parse_answer(status_notes, user_identifier, url):
+    answer_prefix = '@{} Palautteeseesi on vastattu:\n'.format(user_identifier)
+    answer = answer_prefix + status_notes
+    if len(answer) > TWITTER_MESSAGE_MAX_CHARS:
+        # insert link to full response before actual status note
+        # this way we ensure that this will become the image link in the response
+        answer = '{}\n{}\n{}'.format(answer_prefix, url, status_notes)
+        # truncate the response
+        char_count = TWITTER_MESSAGE_MAX_CHARS - 3  # 3 dots
+        answer = '{}...'.format(answer[:char_count])
+    return answer
 
 
 def handle_ticket_updates():
@@ -55,6 +61,5 @@ def handle_ticket_updates():
             feedback.current_comment = status_notes
             feedback.save()
 
-            answer = '@{} Palautteeseesi on vastattu:\n{}'.format(feedback.tweet.user_identifier, status_notes)
-            truncated_answer = truncate_answer(answer, feedback.get_url())
-            twitter_handler.answer_to_tweet(feedback.tweet.source_id, truncated_answer)
+            answer = parse_answer(status_notes, feedback.tweet.user_identifier, feedback.get_url())
+            twitter_handler.answer_to_tweet(feedback.tweet.source_id, answer)
