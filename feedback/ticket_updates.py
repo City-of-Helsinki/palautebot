@@ -18,12 +18,9 @@ TWITTER_SHORT_URL_LENGTH = 30
 
 
 def parse_answer(status_notes, user_identifier, url):
-    answer_prefix = '@{} Palautteeseesi on vastattu:\n'.format(user_identifier)
-    answer = answer_prefix + status_notes
+    # Include link to feedback system to make it tweet's main link
+    answer = '@{} Palautteeseesi on vastattu:\n{}\n{}'.format(user_identifier, url, status_notes)
     if len(answer) > TWITTER_MESSAGE_MAX_CHARS:
-        # insert link to full response before actual status note
-        # this way we ensure that this will become the image link in the response
-        answer = '{}\n{}\n{}'.format(answer_prefix, url, status_notes)
         # truncate the response
         char_count = TWITTER_MESSAGE_MAX_CHARS - 3  # 3 dots
         answer = '{}...'.format(answer[:char_count])
