@@ -69,7 +69,9 @@ class TwitterHandler:
 
         tweet_text = tweet.text
         if tweet.truncated:
-            tweet_text = self.twitter_api.get_status(tweet.id, tweet_mode='extended').full_text
+            # replace tweet object w/ extended tweet to properly get media info too
+            tweet = self.twitter_api.get_status(tweet.id, tweet_mode='extended')
+            tweet_text = tweet.full_text
 
         logger.debug(
             'Handling a tweet from @{}: "{}" ({})'.format(username, tweet_text, tweet.id_str)
