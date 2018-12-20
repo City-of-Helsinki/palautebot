@@ -18,12 +18,14 @@ TWITTER_SHORT_URL_LENGTH = 30
 
 
 def parse_answer(status_notes, user_identifier, url):
-    # Include link to feedback system to make it tweet's main link
-    answer = '@{} Palautteeseesi on vastattu:\n{}\n{}'.format(user_identifier, url, status_notes)
+    answer_base = '@{} Palautteeseesi on vastattu:\n{}'.format(user_identifier, status_notes)
+    line_with_url = '\n' + url
+    # Put link to feedback system at the end to make it tweet's main link
+    answer = answer_base + line_with_url
     if len(answer) > TWITTER_MESSAGE_MAX_CHARS:
         # truncate the response
-        char_count = TWITTER_MESSAGE_MAX_CHARS - 3  # 3 dots
-        answer = '{}...'.format(answer[:char_count])
+        char_count = TWITTER_MESSAGE_MAX_CHARS - len(line_with_url) - 3  # 3 dots
+        answer = '{}...'.format(answer_base[:char_count]) + line_with_url
     return answer
 
 
