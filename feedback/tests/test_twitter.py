@@ -55,7 +55,9 @@ def test_handle_tweets_success(update_status, create_ticket, tweepy_search_resul
         search.assert_called_with(settings.SEARCH_STRING, rpp=100, since_id='777')
         create_ticket.assert_called_with(expected_parsed_data)
         update_status.assert_called_with(
-            'Kiitos @ViljamiTesti! Seuraa etenemistä osoitteessa: http://test_OPEN311_FEEDBACK_URL?fid=7',
+            'Hei @ViljamiTesti! Olen Helsingin kaupungin palautebotti. '
+            'Välitin viestisi kaupungin asiantuntijalle ja siihen vastataan muutaman päivän kuluessa. '
+            'Seuraa etenemistä osoitteesta: http://test_OPEN311_FEEDBACK_URL?fid=7',
             in_reply_to_status_id='874885713845735424'
         )
 

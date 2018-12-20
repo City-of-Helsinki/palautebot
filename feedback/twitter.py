@@ -198,12 +198,9 @@ class TwitterHandler:
     @staticmethod
     def _get_feedback_answer_text(success, username, feedback_url, self_submitted):
         if success:
-            if self_submitted:
-                return 'Kiitos @{}! Seuraa etenemistä osoitteessa: {}'.format(username, feedback_url)
-            else:
-                return ('Hei @{}! Olen Helsingin kaupungin palautebotti. '
-                        'Välitin viestisi kaupungin asiantuntijalle ja siihen vastataan muutaman päivän kuluessa. '
-                        'Seuraa etenemistä osoitteesta: {}').format(username, feedback_url)
+            return ('Hei @{}! Olen Helsingin kaupungin palautebotti. '
+                    'Välitin viestisi kaupungin asiantuntijalle ja siihen vastataan muutaman päivän kuluessa. '
+                    'Seuraa etenemistä osoitteesta: {}').format(username, feedback_url)
         elif self_submitted:
             return 'Pahoittelut @{}! Palautteen tallennus epäonnistui'.format(username)
 
