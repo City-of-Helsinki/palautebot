@@ -3,7 +3,7 @@
 ## Prerequisites
 
 * PostgreSQL (>= 9.5) (a couple of older versions probably work as well)
-* Python (>= 3.4)
+* Python (>= 3.5)
 * Twitter account and keys
 * Open311 keys
 
