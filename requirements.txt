@@ -17,4 +17,4 @@ requests-oauthlib==0.8.0  # via tweepy
 requests==2.21.0
 six==1.11.0               # via django-environ, tweepy
 tweepy==3.5.0
-urllib3==1.24.1             # via requests
+urllib3==1.24.2           # via requests
