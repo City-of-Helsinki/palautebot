@@ -7,7 +7,7 @@
 certifi==2018.1.18        # via requests
 chardet==3.0.4            # via requests
 django-environ==0.4.4
-django==2.1.5
+django==2.1.11
 idna==2.6                 # via requests
 oauthlib==2.0.6           # via requests-oauthlib
 psycopg2-binary==2.7.4
@@ -17,4 +17,4 @@ requests-oauthlib==0.8.0  # via tweepy
 requests==2.21.0
 six==1.11.0               # via django-environ, tweepy
 tweepy==3.5.0
-urllib3==1.24.1             # via requests
+urllib3==1.24.1           # via requests
