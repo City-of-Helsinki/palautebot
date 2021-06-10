@@ -4,17 +4,40 @@
 #
 #    pip-compile --output-file requirements.txt requirements.in
 #
-certifi==2018.1.18        # via requests
-chardet==3.0.4            # via requests
+certifi==2018.1.18
+    # via requests
+chardet==3.0.4
+    # via requests
 django-environ==0.4.4
-django==2.1.5
-idna==2.6                 # via requests
-oauthlib==2.0.6           # via requests-oauthlib
+    # via -r requirements.in
+django==2.2.24
+    # via
+    #   -r requirements.in
+    #   django-environ
+idna==2.6
+    # via requests
+oauthlib==2.0.6
+    # via requests-oauthlib
 psycopg2-binary==2.7.4
-pytz==2018.3              # via django
+    # via -r requirements.in
+pytz==2018.3
+    # via django
 raven==6.5.0
-requests-oauthlib==0.8.0  # via tweepy
+    # via -r requirements.in
+requests-oauthlib==0.8.0
+    # via tweepy
 requests==2.21.0
-six==1.11.0               # via django-environ, tweepy
+    # via
+    #   -r requirements.in
+    #   requests-oauthlib
+    #   tweepy
+six==1.11.0
+    # via
+    #   django-environ
+    #   tweepy
+sqlparse==0.4.1
+    # via django
 tweepy==3.5.0
-urllib3==1.24.1             # via requests
+    # via -r requirements.in
+urllib3==1.24.1
+    # via requests
